@@ -1,20 +1,30 @@
 package org.firstinspires.ftc.teamcode;
 
+import android.app.Activity;
+import android.view.View;
+
 import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.hardware.DistanceSensor;
+import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
+import com.qualcomm.robotcore.hardware.SwitchableLight;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesOrder;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesReference;
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Orientation;
 
 class BobBase {
     OpMode opMode;
 
+
+    NormalizedColorSensor colorSensorL, colorSensorR;
+    View relativeLayout;
 
     // Setting up the gyro sensor
     BNO055IMU imu;
@@ -37,6 +47,8 @@ class BobBase {
     double ticksPerInch = 47.75;
     double drvTrnSpd = 1;
     double hopperSpd = 1;
+    double lReading;
+    double rReading;
 
     // Configuring motors and opMode
     public BobBase(OpMode theOpMode) {
@@ -81,6 +93,17 @@ class BobBase {
         hopper.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         lift.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
+        int relativeLayoutId = opMode.hardwareMap.appContext.getResources().getIdentifier("RelativeLayout", "id", opMode.hardwareMap.appContext.getPackageName());
+        relativeLayout = ((Activity) opMode.hardwareMap.appContext).findViewById(relativeLayoutId);
+
+        colorSensorR = opMode.hardwareMap.get(NormalizedColorSensor.class, "sensor_color_r");
+        colorSensorL = opMode.hardwareMap.get(NormalizedColorSensor.class, "sensor_color_l");
+        if (colorSensorL instanceof SwitchableLight) {
+            ((SwitchableLight) colorSensorL).enableLight(true);
+        }
+        if (colorSensorL instanceof SwitchableLight) {
+            ((SwitchableLight) colorSensorL).enableLight(true);
+        }
 
         // Setting up the parameters
         BNO055IMU.Parameters parameters = new BNO055IMU.Parameters();
@@ -89,6 +112,19 @@ class BobBase {
         // Setting up the gyro sensor on the hardware map and initializing the parameters
         imu = opMode.hardwareMap.get(BNO055IMU.class, "imu");
         imu.initialize(parameters);
+    }
+
+    public void ColorSensorReadings() {
+        lReading = ((DistanceSensor) colorSensorL).getDistance(DistanceUnit.INCH);
+        rReading = ((DistanceSensor) colorSensorR).getDistance(DistanceUnit.INCH);
+        opMode.telemetry.addData("L = ", lReading);
+        opMode.telemetry.addData("R = ", rReading);
+        opMode.telemetry.update();
+    }
+
+    public void BlueOne() {
+
+
     }
 
     // All driver controls
