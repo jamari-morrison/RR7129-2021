@@ -12,8 +12,6 @@ import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 import com.qualcomm.robotcore.hardware.SwitchableLight;
 import com.qualcomm.robotcore.util.ElapsedTime;
-
-import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesOrder;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesReference;
@@ -39,7 +37,6 @@ class BobBase {
     ElapsedTime encoderDriveTimer = new ElapsedTime();
     ElapsedTime imuTimer = new ElapsedTime();
     ElapsedTime motorTimer = new ElapsedTime();
-    int BarcodePosition = 0;
 
     // Declaring variables
     double ticksPerInch = 47.75;
@@ -49,6 +46,7 @@ class BobBase {
     double rReading;
     double veer = 1;
     double basePosNum = BobAuto.posNum;
+    int BarcodePosition = 0;
 
     // Configuring motors and opMode
     public BobBase(OpMode theOpMode) {
@@ -120,34 +118,62 @@ class BobBase {
         // Resetting the encoder drive timeout clock.
         encoderDriveTimer.reset();
 
-        // Initializing the right motors app. in. reading
-        double currentPos = -(rbWheel.getCurrentPosition()/ticksPerInch);
+        // Initializing the app. in. reading
+        double currentPosInches = (-(rbWheel.getCurrentPosition()/ticksPerInch) + (lbWheel.getCurrentPosition()/ticksPerInch)) / 2;
 
         // The important part says to keep moving until the current pos is grater than the target pos.
-        while (((LinearOpMode)opMode).opModeIsActive() && Math.abs(currentPos) < Math.abs(inToMove) && encoderDriveTimer.seconds() < timeOutB) {
-            // Calculating how much we are veering.
-            veer = Math.abs(rbWheel.getCurrentPosition() / lbWheel.getCurrentPosition());
-            // Constantly updating the power to the motors based on how far we have to move. This same line is used in the IMUTurn function. You can easily create proportional control by switching out a few of these variables.
-            double power = Math.max(Math.abs(currentPos-inToMove)/maxSpeedDistance, minSpeed);
+        while (((LinearOpMode)opMode).opModeIsActive() && Math.abs(currentPosInches) < Math.abs(inToMove) && encoderDriveTimer.seconds() < timeOutB) {
+            // Updating current pos.
+            currentPosInches = (-(rbWheel.getCurrentPosition()/ticksPerInch) + (lbWheel.getCurrentPosition()/ticksPerInch)) / 2;
 
-            // Assigning the motor powers. "veer" is a variable accounting for the right side of the drivetrain being faster than the left.
-            if (inToMove >= 0) {
-                lfWheel.setPower(-power * veer);
-                lbWheel.setPower(-power * veer);
-                rfWheel.setPower(-power);
-                rbWheel.setPower(-power);
-            } else if (inToMove < 0) {
-                lfWheel.setPower(power * veer);
-                lbWheel.setPower(power * veer);
-                rfWheel.setPower(power);
-                rbWheel.setPower(power);
+            // Updating the left and right motor readings.
+            double left = lbWheel.getCurrentPosition();
+            double right = rbWheel.getCurrentPosition();
+
+            // Making division by zero impossible.
+            if (left == 0) {
+                left = 1;
             }
 
-            // Updating current pos.
-            currentPos = -(rbWheel.getCurrentPosition()/ticksPerInch);
-        }
+            // Constantly updating the power to the motors based on how far we have to move. This same line is used in the IMUTurn function. You can easily create proportional control by switching out a few of these variables.
+            double power = Math.max(Math.abs(currentPosInches-inToMove)/maxSpeedDistance, minSpeed);
 
-        // Stopping the drivetrain.
+            if (left > right) {
+                // Calculating how much we are veering.
+                veer = (Math.abs(right / left)) * .975;
+
+                // Assigning the motor powers. "veer" is a variable accounting for the right side of the drivetrain being faster than the left.
+                if (inToMove >= 0) {
+                    lfWheel.setPower(-power * veer);
+                    lbWheel.setPower(-power * veer);
+                    rfWheel.setPower(-power);
+                    rbWheel.setPower(-power);
+                } else if (inToMove < 0) {
+                    lfWheel.setPower(power * veer);
+                    lbWheel.setPower(power * veer);
+                    rfWheel.setPower(power);
+                    rbWheel.setPower(power);
+                }
+            }
+            if (right >= left) {
+                // Calculating how much we are veering.
+                veer = (Math.abs(left / right)) * .975;
+
+                // Assigning the motor powers. "veer" is a variable accounting for the right side of the drivetrain being faster than the left.
+                if (inToMove >= 0) {
+                    lfWheel.setPower(-power);
+                    lbWheel.setPower(-power);
+                    rfWheel.setPower(-power * veer);
+                    rbWheel.setPower(-power * veer);
+                } else if (inToMove < 0) {
+                    lfWheel.setPower(power);
+                    lbWheel.setPower(power);
+                    rfWheel.setPower(power * veer);
+                    rbWheel.setPower(power * veer);
+                }
+            }
+        }
+        // Stopping the drivetrain after reahing the target.
         lfWheel.setPower(0);
         rfWheel.setPower(0);
         lbWheel.setPower(0);
@@ -167,7 +193,7 @@ class BobBase {
             float power = Math.max(Math.abs(currentHeading-targetAngle)/maxSpeedAngle, minSpeed);
 
             if (Math.abs(currentHeading) < Math.abs(targetAngle)) {
-                if ((Math.abs(currentHeading) - Math.abs(targetAngle)) > -5){
+                if ((Math.abs(currentHeading) - Math.abs(targetAngle)) > -2.5){
                     break;
                 }
             }
@@ -197,18 +223,13 @@ class BobBase {
 
     // Blue autonomous path.
     public void BlueOne() {
-        EncoderDrive(-16.25,50,.35,3);
+        EncoderDrive(-16.25,20,.3,3);
         ColorSensorReadings();
-        EncoderDrive(4,30,.375,3);
-        IMUTurn(-84f,"r", 270, .25f, 2);
-        EncoderDrive(-18.5,40,.375,3);
-        IMUTurn(-9.5f,"l", 270, .25f, 2);
-        EncoderDrive(4.5,30,.375,3);
-        CarouselAuto();
-        EncoderDrive(-36,80,.375,2);
-        IMUTurn(80,"l", 270, .25f, 2);
-        EncoderDrive(-29,80,.375,2);
-        DeliverBlock();
+        EncoderDrive(3,15,.3,3);
+        IMUTurn(-88f,"r", 200, .3f, 2);
+        EncoderDrive(-19,25,.3,3);
+        IMUTurn(-2f,"l", 200, .3f, 3);
+
         while (((LinearOpMode)opMode).opModeIsActive()) {
             Telemetry();
         }
@@ -288,8 +309,16 @@ class BobBase {
         // Telemetry
         angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
         float currentHeading = angles.firstAngle;
-        opMode.telemetry.addData("Pos: ", BarcodePosition);
+        double currentPos = (-(rbWheel.getCurrentPosition()/ticksPerInch) + (lbWheel.getCurrentPosition()/ticksPerInch)) / 2;
+        double left = lbWheel.getCurrentPosition();
+        double right = rbWheel.getCurrentPosition();
+        veer = Math.abs(right / left);
+        opMode.telemetry.addData("Veer: ", veer);
+        opMode.telemetry.addData("Barcode position: ", BarcodePosition);
         opMode.telemetry.addData("Heading: ", currentHeading);
+        opMode.telemetry.addData("Current position: ", currentPos);
+        opMode.telemetry.addData("Left: ", lbWheel.getCurrentPosition());
+        opMode.telemetry.addData("Right: ", (-rbWheel.getCurrentPosition()));
         opMode.telemetry.update();
     }
 
