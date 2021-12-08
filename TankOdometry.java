@@ -68,49 +68,4 @@ public class TankOdometry extends LinearOpMode {
         }
         System.out.println(angleToTurnInDeg);
     }
-
-    void IMUTurn(double targetAngle, String leftOrRight) {
-        // Resetting our timer
-        imuTimer.reset();
-        while (opModeIsActive() && imuTimer.seconds() < 5) {
-            // Updating our current heading while turning
-            // This records the z axis angle in the variable 'currentHeading'
-            angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
-            double currentHeading = angles.firstAngle;
-            // Calculating the motor power. 'minSpeed' is the slowest speed to turn at.
-            // 'maxSpeedAngle' is how many degrees of the angle it will turn without slowing down
-            double power = Math.max(Math.abs(currentHeading-targetAngle)/maxSpeedAngle, minSpeed);
-
-            if (Math.abs(currentHeading) < Math.abs(targetAngle)) {
-                if ((Math.abs(currentHeading) - Math.abs(targetAngle)) > -.5){
-                    break;
-                }
-            }
-
-            if (leftOrRight.equals("left")){
-                // Actually applying the power
-                LFDriveMotor.setPower(-power);
-                LBDriveMotor.setPower(-power);
-                RFDriveMotor.setPower(power);
-                RBDriveMotor.setPower(power);
-            }
-            if (leftOrRight.equals("right")){
-                // Actually applying the power
-                LFDriveMotor.setPower(power);
-                LBDriveMotor.setPower(power);
-                RFDriveMotor.setPower(-power);
-                RBDriveMotor.setPower(-power);
-            }
-            // Telemetering our heading
-            telemetry.addData("Heading: ", currentHeading);
-            telemetry.addData("Runtime: ", imuTimer);
-            telemetry.addData("Power", LFDriveMotor.getPower());
-            telemetry.update();
-        }
-        // Stopping the motors once we completed our turn
-        LFDriveMotor.setPower(0);
-        LBDriveMotor.setPower(0);
-        RFDriveMotor.setPower(0);
-        RBDriveMotor.setPower(0);
-    }
 }

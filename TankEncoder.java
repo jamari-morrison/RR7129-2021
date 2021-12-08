@@ -8,7 +8,6 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-@Disabled
 @Autonomous(name = "Encoder", group = "Sensor")
 public class TankEncoder extends LinearOpMode
 {
@@ -36,7 +35,9 @@ public class TankEncoder extends LinearOpMode
         lbWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         rbWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         rbWheel.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-
+        lbWheel.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        rbWheel.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        lbWheel.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
         // Waiting for start
         waitForStart();
@@ -45,19 +46,19 @@ public class TankEncoder extends LinearOpMode
 
             double currentPos = -(rbWheel.getCurrentPosition()/ticksPerInch);
             telemetry.addData("Right: ", -rbWheel.getCurrentPosition());
+            telemetry.addData("Left: ", -lbWheel.getCurrentPosition());
             telemetry.addData("Runtime: ", runtime);
             telemetry.addData("Current pos: ", currentPos);
             telemetry.update();
 
             if (gamepad1.a) {
                 rbWheel.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                lbWheel.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
             }
 
             if (gamepad1.y) {
-                EncoderDrive(6, 0, 0);
+                EncoderDrive(10,50, .35);
             }
-
-
         }
     }
 
@@ -66,12 +67,9 @@ public class TankEncoder extends LinearOpMode
 
         double currentPos = -(rbWheel.getCurrentPosition()/ticksPerInch);
         while (opModeIsActive() && currentPos < inToMove && encoderDriveTimer.seconds() < 5) {
-            lfWheel.setPower(-.3);
+            lfWheel.setPower(-.4);
             rfWheel.setPower(-.4);
             currentPos = -(rbWheel.getCurrentPosition()/ticksPerInch);
-            telemetry.addData("Current pos: ", currentPos);
-            telemetry.addData("inToMove", inToMove);
-            telemetry.update();
         }
         lfWheel.setPower(0);
         rfWheel.setPower(0);
