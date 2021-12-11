@@ -12,6 +12,7 @@ import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 import com.qualcomm.robotcore.hardware.SwitchableLight;
 import com.qualcomm.robotcore.util.ElapsedTime;
+
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesOrder;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesReference;
@@ -39,14 +40,21 @@ class BobBase {
     ElapsedTime motorTimer = new ElapsedTime();
 
     // Declaring variables
+    boolean upFlag = false;
+    boolean upPersistent = false;
+    boolean downFlag = false;
+    boolean downPersistent = false;
     double ticksPerInch = 47.75;
     double drvTrnSpd = 1;
     double hopperSpd = 1;
-    double lReading;
-    double rReading;
+    double lReading = 0;
+    double rReading = 0;
     double veer = 1;
     double basePosNum = BobAuto.posNum;
     int BarcodePosition = 0;
+    float currentHeading = 0;
+    float headingAdjustment = 0;
+    float adjCurrentHeading = 0;
 
     // Configuring motors and opMode
     public BobBase(OpMode theOpMode) {
@@ -67,7 +75,7 @@ class BobBase {
         // Lift controls.
         lift.setPower(opMode.gamepad2.left_stick_y);
         // Collection/delivery controls.
-        hopper.setPower(-opMode.gamepad2.right_stick_y * hopperSpd);
+        hopper.setPower(opMode.gamepad2.right_stick_y * hopperSpd);
         // Variable hopper speed.
         if (opMode.gamepad2.x) {
             hopperSpd = .75;
@@ -79,16 +87,10 @@ class BobBase {
     // All driver controls
     public void DriverControls() {
         // Drivetrain controls
-        lfWheel.setPower(opMode.gamepad1.left_stick_y - opMode.gamepad1.right_stick_x);
-        rfWheel.setPower(opMode.gamepad1.left_stick_y + opMode.gamepad1.right_stick_x);
-        lbWheel.setPower(opMode.gamepad1.left_stick_y - opMode.gamepad1.right_stick_x);
-        rbWheel.setPower(opMode.gamepad1.left_stick_y + opMode.gamepad1.right_stick_x);
-        // Increase/decrease speed. Bob go brrrrr
-        if (opMode.gamepad1.dpad_up) {
-            drvTrnSpd = 1;
-        } else if (opMode.gamepad1.dpad_down) {
-            drvTrnSpd = .75;
-        }
+        lfWheel.setPower((opMode.gamepad1.left_stick_y - opMode.gamepad1.right_stick_x)*drvTrnSpd);
+        rfWheel.setPower((opMode.gamepad1.left_stick_y + opMode.gamepad1.right_stick_x)*drvTrnSpd);
+        lbWheel.setPower((opMode.gamepad1.left_stick_y - opMode.gamepad1.right_stick_x)*drvTrnSpd);
+        rbWheel.setPower((opMode.gamepad1.left_stick_y + opMode.gamepad1.right_stick_x)*drvTrnSpd);
         // Carousel spinner slow.
         if (opMode.gamepad1.left_bumper) {
             carouselSpinnerL.setPower(.5);
@@ -96,18 +98,51 @@ class BobBase {
         }
         // Carousel spinner fast.
         else if (opMode.gamepad1.right_bumper) {
-            carouselSpinnerL.setPower(.75);
-            carouselSpinnerR.setPower(-.75);
+            carouselSpinnerL.setPower(.35);
+            carouselSpinnerR.setPower(-.35);
         }
         // Carousel spinner off.
         else if(!opMode.gamepad1.right_bumper && !opMode.gamepad1.left_bumper) {
             carouselSpinnerL.setPower(0);
             carouselSpinnerR.setPower(0);
         }
+        // Press 'a' to reset our heading.
+        if (opMode.gamepad1.a) {
+            headingAdjustment = currentHeading;
+        }
+        // Move to the last rotation we pressed 'a' at. 'x' will turn left and 'b' will turn right.
+        if (opMode.gamepad1.x) {
+            TeleIMUTurn(12, "l", 270, .3f,2);
+        } else if (opMode.gamepad1.b) {
+            TeleIMUTurn(-12, "r", 270, .3f, 2);
+        }
+
+
+        if (opMode.gamepad1.dpad_up){
+            upFlag = true;
+        } else {
+            upFlag = false;
+            upPersistent = false;
+        }
+        if (upFlag && !upPersistent) {
+            if (drvTrnSpd < 1){drvTrnSpd += .1;}
+            upPersistent = true;
+        }
+        if (opMode.gamepad1.dpad_down){
+            downFlag = true;
+        } else {
+            downFlag = false;
+            downPersistent = false;
+        }
+        if (downFlag && !downPersistent) {
+            if (drvTrnSpd > .1){drvTrnSpd -= .1;}
+            downPersistent = true;
+        }
     }
 
     // try method overloading
-    // Encoder drive function. DISCLAIMER: I did this quickly so it's really ugly. Don't do this next year. Like seriously, get a junk drivetrain and program on it; it'll be better than this.
+    // Encoder drive function. DISCLAIMER: I did this quickly so it's really ugly. Don't do this next year.
+    // Like seriously, get a junk drivetrain and program on it; it'll be better than this.
     public void EncoderDrive(double inToMove, double maxSpeedDistance, double minSpeed, float timeOutB) {
         // Resetting the encoders. Encoders are plugged into the lf and rf motors. I am just too lazy to switch the ports on the control and expansion hubs.
         rbWheel.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
@@ -187,7 +222,7 @@ class BobBase {
             // Updating our current heading while turning
             // This records the z axis angle in the variable 'currentHeading'
             angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
-            float currentHeading = angles.firstAngle;
+            currentHeading = (angles.firstAngle);
             // Calculating the motor power. 'minSpeed' is the slowest speed to turn at.
             // 'maxSpeedAngle' is how many degrees of the angle it will turn without slowing down
             float power = Math.max(Math.abs(currentHeading-targetAngle)/maxSpeedAngle, minSpeed);
@@ -221,20 +256,6 @@ class BobBase {
         rbWheel.setPower(0);
     }
 
-    // Blue autonomous path.
-    public void BlueOne() {
-        EncoderDrive(-16.25,20,.3,3);
-        ColorSensorReadings();
-        EncoderDrive(3,15,.3,3);
-        IMUTurn(-88f,"r", 200, .3f, 2);
-        EncoderDrive(-19,25,.3,3);
-        IMUTurn(-2f,"l", 200, .3f, 3);
-
-        while (((LinearOpMode)opMode).opModeIsActive()) {
-            Telemetry();
-        }
-    }
-
     // Reading the barcode.
     public void ColorSensorReadings() {
         // Read the barcode pos for half a second.
@@ -250,10 +271,61 @@ class BobBase {
         } else {
             BarcodePosition = 0;
         }
-        opMode.telemetry.addData("", BarcodePosition);
-        opMode.telemetry.addData("L: ", lReading);
-        opMode.telemetry.addData("R: ", rReading);
-        opMode.telemetry.update();
+    }// Blue autonomous path.
+    public void BlueOne() {
+        EncoderDrive(-16.75,40,.38,3);
+        ColorSensorReadings();
+        EncoderDrive(3,15,.38,3);
+        IMUTurn(-88f,"r", 200, .35f, 2);
+        EncoderDrive(-19,25,.38,3);
+        IMUTurn(-2f,"l", 200, .3f, 3);
+        EncoderDrive(5.75,12,.38,3);
+        CarouselAuto();
+        EncoderDrive(-33, 48, .38, 3);
+        IMUTurn(82,"l", 200, .3f, 3);
+        EncoderDrive(-26, 46, .38, 3);
+        DeliverBlock();
+        EncoderDrive(29, 52, .38, 3);
+        IMUTurn(7, "r", 200, .3f, 3);
+        EncoderDrive(11, 40, .38, 3);
+
+        while (((LinearOpMode)opMode).opModeIsActive()) {
+            Telemetry();
+        }
+    }
+
+    public void RedOne() {
+        EncoderDrive(-16,40,.35,3);
+        ColorSensorReadings();
+        EncoderDrive(3,15,.35,3);
+        IMUTurn(86f,"l", 200, .35f, 2);
+        EncoderDrive(-19,25,.35,3);
+        IMUTurn(2f,"r", 200, .3f, 3);
+        EncoderDrive(5.75,12,.35,3);
+        CarouselAuto();
+        EncoderDrive(-34, 48, .35, 3);
+        IMUTurn(-85,"r", 200, .3f, 3);
+        EncoderDrive(-27, 46, .38, 3);
+        DeliverBlock();
+        EncoderDrive(32, 52, .38, 3);
+        IMUTurn(-4, "l", 200, .34f, 3);
+        EncoderDrive(16, 40, .38, 3);
+    }
+
+    public void BlueTwo() {
+        EncoderDrive(-20, 40, .35, 3);
+        DeliverBlock();
+        EncoderDrive(2,14, .35, 3);
+        IMUTurn(86, "l", 200, .3f, 3);
+        EncoderDrive(-54, 30, 1, 5);
+    }
+
+    public void RedTwo() {
+        EncoderDrive(-20, 40, .35, 3);
+        DeliverBlock();
+        EncoderDrive(2,14, .35, 3);
+        IMUTurn(-86, "r", 200, .3f, 3);
+        EncoderDrive(-54, 30, 1, 5);
     }
 
     public void CarouselAuto() {
@@ -274,7 +346,7 @@ class BobBase {
             carouselSpinnerL.setPower(-.3);
             carouselSpinnerR.setPower(.3);
             motorTimer.reset();
-            while (motorTimer.seconds() < 3 && ((LinearOpMode)opMode).opModeIsActive()) {
+            while (motorTimer.seconds() < 3 && ((LinearOpMode) opMode).opModeIsActive()) {
                 Telemetry();
             }
             carouselSpinnerL.setPower(0);
@@ -284,41 +356,53 @@ class BobBase {
     }
 
     public void DeliverBlock() {
-        motorTimer.reset();
-        lift.setPower(-.6);
-        while (motorTimer.seconds()<2 && ((LinearOpMode)opMode).opModeIsActive()){
-            Telemetry();
+        if (BarcodePosition == 0 || BarcodePosition == 2) {
+            motorTimer.reset();
+            lift.setPower(-.6);
+            while (motorTimer.seconds() < 2 && ((LinearOpMode) opMode).opModeIsActive()) {
+                Telemetry();
+            }
+            lift.setPower(-.1);
+            hopper.setPower(-.4);
+            motorTimer.reset();
+            while (motorTimer.seconds() < 1 && ((LinearOpMode) opMode).opModeIsActive()) {
+                Telemetry();
+            }
+            hopper.setPower(0);
+            lift.setPower(.8);
+            motorTimer.reset();
+            while (motorTimer.seconds() < 1 && ((LinearOpMode) opMode).opModeIsActive()) {
+                Telemetry();
+            }
+            lift.setPower(0);
+        } else if (BarcodePosition == 1) {
+            motorTimer.reset();
+            lift.setPower(-.6);
+            while (motorTimer.seconds() < 1.35 && ((LinearOpMode) opMode).opModeIsActive()) {
+            }
+            lift.setPower(-.1);
+            hopper.setPower(-.4);
+            motorTimer.reset();
+            while (motorTimer.seconds() < 1 && ((LinearOpMode) opMode).opModeIsActive()) {
+                Telemetry();
+            }
+            hopper.setPower(0);
+            lift.setPower(.6);
+            motorTimer.reset();
+            while (motorTimer.seconds() < .7 && ((LinearOpMode) opMode).opModeIsActive()) {
+                Telemetry();
+            }
+            lift.setPower(0);
         }
-        lift.setPower(-.1);
-        hopper.setPower(-.4);
-        motorTimer.reset();
-        while (motorTimer.seconds()<1 && ((LinearOpMode)opMode).opModeIsActive()) {
-            Telemetry();
-        }
-        hopper.setPower(0);
-        lift.setPower(.8);
-        motorTimer.reset();
-        while (motorTimer.seconds()<1 && ((LinearOpMode)opMode).opModeIsActive()){
-            Telemetry();
-        }
-        lift.setPower(0);
     }
 
-    // Telemetry
+    // Telemetry.
     public void Telemetry() {
-        // Telemetry
         angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
-        float currentHeading = angles.firstAngle;
-        double currentPos = (-(rbWheel.getCurrentPosition()/ticksPerInch) + (lbWheel.getCurrentPosition()/ticksPerInch)) / 2;
-        double left = lbWheel.getCurrentPosition();
-        double right = rbWheel.getCurrentPosition();
-        veer = Math.abs(right / left);
-        opMode.telemetry.addData("Veer: ", veer);
-        opMode.telemetry.addData("Barcode position: ", BarcodePosition);
-        opMode.telemetry.addData("Heading: ", currentHeading);
-        opMode.telemetry.addData("Current position: ", currentPos);
-        opMode.telemetry.addData("Left: ", lbWheel.getCurrentPosition());
-        opMode.telemetry.addData("Right: ", (-rbWheel.getCurrentPosition()));
+        currentHeading = (angles.firstAngle);
+        adjCurrentHeading = currentHeading - headingAdjustment;
+        opMode.telemetry.addData("Heading: ", adjCurrentHeading);
+        opMode.telemetry.addData("Drivetrain speed: ", drvTrnSpd);
         opMode.telemetry.update();
     }
 
@@ -362,5 +446,38 @@ class BobBase {
         parameters.angleUnit           = BNO055IMU.AngleUnit.DEGREES;
         imu = opMode.hardwareMap.get(BNO055IMU.class, "imu");
         imu.initialize(parameters);
+    }
+
+    // IMU turn to use in teleop. See 'IMUTurn' for comments
+    void TeleIMUTurn(float targetAngle, String leftOrRight, int maxSpeedAngle, float minSpeed, float timeOutA) {
+        imuTimer.reset();
+        while (imuTimer.seconds() < timeOutA) {
+            angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
+            currentHeading = (angles.firstAngle);
+            adjCurrentHeading = (angles.firstAngle-headingAdjustment);
+            float power = Math.max(Math.abs(adjCurrentHeading-targetAngle)/maxSpeedAngle, minSpeed);
+            if (Math.abs(adjCurrentHeading) < Math.abs(targetAngle)) {
+                if ((Math.abs(adjCurrentHeading) - Math.abs(targetAngle)) > -5) {
+                    break;
+                }
+            }
+            if (leftOrRight.equals("left") || leftOrRight.equals("l")){
+                lfWheel.setPower(power);
+                lbWheel.setPower(power);
+                rfWheel.setPower(-power);
+                rbWheel.setPower(-power);
+            } else {
+                lfWheel.setPower(-power);
+                lbWheel.setPower(-power);
+                rfWheel.setPower(power);
+                rbWheel.setPower(power);
+            }
+            opMode.telemetry.addData("Heading: ", adjCurrentHeading);
+            opMode.telemetry.update();
+        }
+        lfWheel.setPower(0);
+        lbWheel.setPower(0);
+        rfWheel.setPower(0);
+        rbWheel.setPower(0);
     }
 }

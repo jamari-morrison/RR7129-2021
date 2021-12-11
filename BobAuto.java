@@ -11,7 +11,7 @@ public class BobAuto extends LinearOpMode {
     ElapsedTime allianceTimer = new ElapsedTime();
     static int posNum = 1;
 
-    
+
     @Override
     public void runOpMode() throws InterruptedException {
         base = new BobBase(this);
@@ -47,9 +47,16 @@ public class BobAuto extends LinearOpMode {
         if (posNum == 1) {
             base.BlueOne();
         }
-
+        else if (posNum == 2) {
+            base.BlueTwo();
+        }
+        else if (posNum == 3) {
+            base.RedOne();
+        }
+        else if (posNum == 4) {
+            base.RedTwo();
+        }
         while (opModeIsActive()) {
-            base.ColorSensorReadings();
         }
     }
 }
