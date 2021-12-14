@@ -11,11 +11,6 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 @Autonomous(name = "Encoder", group = "Sensor")
 public class TankEncoder extends LinearOpMode
 {
-    double ticksPerInch = 47.75;
-    double wheelCircumference = 12.56;
-    double gearRatio = 1.67;
-    ElapsedTime runtime = new ElapsedTime();
-    ElapsedTime encoderDriveTimer = new ElapsedTime();
     DcMotor lfWheel, rfWheel, lbWheel, rbWheel;
 
 
@@ -27,54 +22,29 @@ public class TankEncoder extends LinearOpMode
         lbWheel = hardwareMap.dcMotor.get("lbWheel");
         rbWheel = hardwareMap.dcMotor.get("rbWheel");
 
-        rfWheel.setDirection(DcMotorSimple.Direction.REVERSE);
         rbWheel.setDirection(DcMotorSimple.Direction.REVERSE);
+        rfWheel.setDirection(DcMotorSimple.Direction.REVERSE);
 
-        lfWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        rfWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        lbWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        rbWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        rbWheel.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        lbWheel.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        rbWheel.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        lbWheel.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        lfWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        rfWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        lbWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        rbWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         // Waiting for start
         waitForStart();
 
         while (opModeIsActive()) {
-
-            double currentPos = -(rbWheel.getCurrentPosition()/ticksPerInch);
-            telemetry.addData("Right: ", -rbWheel.getCurrentPosition());
-            telemetry.addData("Left: ", -lbWheel.getCurrentPosition());
-            telemetry.addData("Runtime: ", runtime);
-            telemetry.addData("Current pos: ", currentPos);
-            telemetry.update();
-
-            if (gamepad1.a) {
-                rbWheel.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-                lbWheel.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-            }
-
-            if (gamepad1.y) {
-                EncoderDrive(10,50, .35);
+            if(gamepad1.a) {
+                lfWheel.setPower(.5);
+                lbWheel.setPower(.5);
+                rbWheel.setPower(.5);
+                rfWheel.setPower(.5);
+            } else {
+                lfWheel.setPower(.0);
+                lbWheel.setPower(.0);
+                rbWheel.setPower(.0);
+                rfWheel.setPower(.0);
             }
         }
-    }
-
-    public void EncoderDrive(double inToMove, double maxSpeedDistance, double minSpeed) {
-        encoderDriveTimer.reset();
-
-        double currentPos = -(rbWheel.getCurrentPosition()/ticksPerInch);
-        while (opModeIsActive() && currentPos < inToMove && encoderDriveTimer.seconds() < 5) {
-            lfWheel.setPower(-.4);
-            rfWheel.setPower(-.4);
-            currentPos = -(rbWheel.getCurrentPosition()/ticksPerInch);
-        }
-        lfWheel.setPower(0);
-        rfWheel.setPower(0);
-        lbWheel.setPower(0);
-        rbWheel.setPower(0);
-        rbWheel.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
     }
 }

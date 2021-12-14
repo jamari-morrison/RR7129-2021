@@ -55,6 +55,7 @@ class BobBase {
     float currentHeading = 0;
     float headingAdjustment = 0;
     float adjCurrentHeading = 0;
+    double currentPosInches = 0;
 
     // Configuring motors and opMode
     public BobBase(OpMode theOpMode) {
@@ -154,12 +155,13 @@ class BobBase {
         encoderDriveTimer.reset();
 
         // Initializing the app. in. reading
-        double currentPosInches = (-(rbWheel.getCurrentPosition()/ticksPerInch) + (lbWheel.getCurrentPosition()/ticksPerInch)) / 2;
+        currentPosInches = ((Math.abs(rbWheel.getCurrentPosition())) + (Math.abs(lbWheel.getCurrentPosition())) / 2)/ticksPerInch;
 
         // The important part says to keep moving until the current pos is grater than the target pos.
-        while (((LinearOpMode)opMode).opModeIsActive() && Math.abs(currentPosInches) < Math.abs(inToMove) && encoderDriveTimer.seconds() < timeOutB) {
+        while (((LinearOpMode)opMode).opModeIsActive() && currentPosInches < Math.abs(inToMove) && encoderDriveTimer.seconds() < timeOutB) {
+            opMode.telemetry.addData("In to move:", inToMove);
             // Updating current pos.
-            currentPosInches = (-(rbWheel.getCurrentPosition()/ticksPerInch) + (lbWheel.getCurrentPosition()/ticksPerInch)) / 2;
+            currentPosInches = ((Math.abs(rbWheel.getCurrentPosition())) + (Math.abs(lbWheel.getCurrentPosition())) / 2)/ticksPerInch;
 
             // Updating the left and right motor readings.
             double left = lbWheel.getCurrentPosition();
@@ -179,15 +181,15 @@ class BobBase {
 
                 // Assigning the motor powers. "veer" is a variable accounting for the right side of the drivetrain being faster than the left.
                 if (inToMove >= 0) {
-                    lfWheel.setPower(-power * veer);
-                    lbWheel.setPower(-power * veer);
-                    rfWheel.setPower(-power);
-                    rbWheel.setPower(-power);
-                } else if (inToMove < 0) {
                     lfWheel.setPower(power * veer);
                     lbWheel.setPower(power * veer);
                     rfWheel.setPower(power);
                     rbWheel.setPower(power);
+                } else if (inToMove < 0) {
+                    lfWheel.setPower(-power * veer);
+                    lbWheel.setPower(-power * veer);
+                    rfWheel.setPower(-power);
+                    rbWheel.setPower(-power);
                 }
             }
             if (right >= left) {
@@ -196,15 +198,15 @@ class BobBase {
 
                 // Assigning the motor powers. "veer" is a variable accounting for the right side of the drivetrain being faster than the left.
                 if (inToMove >= 0) {
-                    lfWheel.setPower(-power);
-                    lbWheel.setPower(-power);
-                    rfWheel.setPower(-power * veer);
-                    rbWheel.setPower(-power * veer);
-                } else if (inToMove < 0) {
                     lfWheel.setPower(power);
                     lbWheel.setPower(power);
                     rfWheel.setPower(power * veer);
                     rbWheel.setPower(power * veer);
+                } else if (inToMove < 0) {
+                    lfWheel.setPower(-power);
+                    lbWheel.setPower(-power);
+                    rfWheel.setPower(-power * veer);
+                    rbWheel.setPower(-power * veer);
                 }
             }
         }
@@ -227,24 +229,27 @@ class BobBase {
             // 'maxSpeedAngle' is how many degrees of the angle it will turn without slowing down
             float power = Math.max(Math.abs(currentHeading-targetAngle)/maxSpeedAngle, minSpeed);
 
-            if (Math.abs(currentHeading) < Math.abs(targetAngle)) {
-                if ((Math.abs(currentHeading) - Math.abs(targetAngle)) > -2.5){
-                    break;
+            
+            if (targetAngle < currentHeading) {
+                if ((currentHeading) < (targetAngle)) {
+                    if ((Math.abs(currentHeading) - Math.abs(targetAngle)) > -2.5){
+                        break;
+                    }
                 }
             }
 
             if (leftOrRight.equals("left") || leftOrRight.equals("l")){
                 // Actually applying the power
-                lfWheel.setPower(power);
-                lbWheel.setPower(power);
-                rfWheel.setPower(-power);
-                rbWheel.setPower(-power);
-            } else {
-                // Actually applying the power
                 lfWheel.setPower(-power);
                 lbWheel.setPower(-power);
                 rfWheel.setPower(power);
                 rbWheel.setPower(power);
+            } else {
+                // Actually applying the power
+                lfWheel.setPower(power);
+                lbWheel.setPower(power);
+                rfWheel.setPower(-power);
+                rbWheel.setPower(-power);
             }
             opMode.telemetry.addData("Heading: ", currentHeading);
             opMode.telemetry.update();
@@ -273,21 +278,21 @@ class BobBase {
         }
     }// Blue autonomous path.
     public void BlueOne() {
-        EncoderDrive(-16.75,40,.38,3);
+        EncoderDrive(-16.75,40,.8,3);
         ColorSensorReadings();
-        EncoderDrive(3,15,.38,3);
-        IMUTurn(-88f,"r", 200, .35f, 2);
-        EncoderDrive(-19,25,.38,3);
-        IMUTurn(-2f,"l", 200, .3f, 3);
-        EncoderDrive(5.75,12,.38,3);
+        EncoderDrive(3,15,.8,3);
+        IMUTurn(-88f,"r", 200, .5f, 2);
+        EncoderDrive(-19,25,.8,3);
+        IMUTurn(-2f,"l", 200, .5f, 3);
+        EncoderDrive(5.75,12,.8,3);
         CarouselAuto();
-        EncoderDrive(-33, 48, .38, 3);
-        IMUTurn(82,"l", 200, .3f, 3);
-        EncoderDrive(-26, 46, .38, 3);
+        EncoderDrive(-33, 48, .8, 3);
+        IMUTurn(82,"l", 200, .5f, 3);
+        EncoderDrive(-26, 46, .8, 3);
         DeliverBlock();
-        EncoderDrive(29, 52, .38, 3);
-        IMUTurn(7, "r", 200, .3f, 3);
-        EncoderDrive(11, 40, .38, 3);
+        EncoderDrive(29, 52, .8, 3);
+        IMUTurn(7, "r", 200, .5f, 3);
+        EncoderDrive(11, 40, .8, 3);
 
         while (((LinearOpMode)opMode).opModeIsActive()) {
             Telemetry();
@@ -398,10 +403,12 @@ class BobBase {
 
     // Telemetry.
     public void Telemetry() {
+        // Initializing the app. in. reading
         angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
         currentHeading = (angles.firstAngle);
         adjCurrentHeading = currentHeading - headingAdjustment;
         opMode.telemetry.addData("Heading: ", adjCurrentHeading);
+        opMode.telemetry.addData("Current pos:", currentPosInches);
         opMode.telemetry.addData("Drivetrain speed: ", drvTrnSpd);
         opMode.telemetry.update();
     }
@@ -423,8 +430,8 @@ class BobBase {
         // Setting some motors to brake and all others to float.
         lfWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         rfWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        lbWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        rbWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        lbWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        rbWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         carouselSpinnerL.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         carouselSpinnerR.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         hopper.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -446,6 +453,9 @@ class BobBase {
         parameters.angleUnit           = BNO055IMU.AngleUnit.DEGREES;
         imu = opMode.hardwareMap.get(BNO055IMU.class, "imu");
         imu.initialize(parameters);
+    }
+    public void test() {
+        EncoderDrive(5,10,.5,2);
     }
 
     // IMU turn to use in teleop. See 'IMUTurn' for comments
