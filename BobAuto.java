@@ -45,25 +45,19 @@ public class BobAuto extends LinearOpMode {
 
         waitForStart();
 
-//        if (posNum == 1) {
-//            base.BlueOne();
-//        }
-//        else if (posNum == 2) {
-//            base.BlueTwo();
-//        }
-//        else if (posNum == 3) {
-//            base.RedOne();
-//        }
-//        else if (posNum == 4) {
-//            base.RedTwo();
-//        }
+        if (posNum == 1) {
+            base.BlueOne();
+        }
+        else if (posNum == 2) {
+            base.BlueTwo();
+        }
+        else if (posNum == 3) {
+            base.RedOne();
+        }
+        else if (posNum == 4) {
+            base.RedTwo();
+        }
         while (opModeIsActive()) {
-            if (gamepad1.a) {
-                base.IMUTurn(90,"l",270, .3f,3);
-            } else if (gamepad1.y) {
-                base.IMUTurn(-90,"r",270, .3f,3);
-            }
-
             base.Telemetry();
         }
     }

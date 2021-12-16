@@ -45,7 +45,7 @@ class BobBase {
     boolean downFlag = false;
     boolean downPersistent = false;
     double ticksPerInch = 47.75;
-    double drvTrnSpd = 1;
+    double drvTrnSpd = .75;
     double hopperSpd = 1;
     double lReading = 0;
     double rReading = 0;
@@ -56,6 +56,8 @@ class BobBase {
     float headingAdjustment = 0;
     float adjCurrentHeading = 0;
     double currentPosInches = 0;
+    double left = 0;
+    double right = 0;
 
     // Configuring motors and opMode
     public BobBase(OpMode theOpMode) {
@@ -88,10 +90,10 @@ class BobBase {
     // All driver controls
     public void DriverControls() {
         // Drivetrain controls
-        lfWheel.setPower((opMode.gamepad1.left_stick_y - opMode.gamepad1.right_stick_x)*drvTrnSpd);
-        rfWheel.setPower((opMode.gamepad1.left_stick_y + opMode.gamepad1.right_stick_x)*drvTrnSpd);
-        lbWheel.setPower((opMode.gamepad1.left_stick_y - opMode.gamepad1.right_stick_x)*drvTrnSpd);
-        rbWheel.setPower((opMode.gamepad1.left_stick_y + opMode.gamepad1.right_stick_x)*drvTrnSpd);
+        lfWheel.setPower(-((opMode.gamepad1.left_stick_y - opMode.gamepad1.right_stick_x)*drvTrnSpd));
+        rfWheel.setPower(-((opMode.gamepad1.left_stick_y + opMode.gamepad1.right_stick_x)*drvTrnSpd));
+        lbWheel.setPower(-((opMode.gamepad1.left_stick_y - opMode.gamepad1.right_stick_x)*drvTrnSpd));
+        rbWheel.setPower(-((opMode.gamepad1.left_stick_y + opMode.gamepad1.right_stick_x)*drvTrnSpd));
         // Carousel spinner slow.
         if (opMode.gamepad1.left_bumper) {
             carouselSpinnerL.setPower(.5);
@@ -154,30 +156,32 @@ class BobBase {
         // Resetting the encoder drive timeout clock.
         encoderDriveTimer.reset();
 
+        left = lbWheel.getCurrentPosition();
+        right = rbWheel.getCurrentPosition();
         // Initializing the app. in. reading
-        currentPosInches = ((Math.abs(rbWheel.getCurrentPosition())) + (Math.abs(lbWheel.getCurrentPosition())) / 2)/ticksPerInch;
+        currentPosInches = ((left + right)/2)/ticksPerInch;
 
         // The important part says to keep moving until the current pos is grater than the target pos.
-        while (((LinearOpMode)opMode).opModeIsActive() && currentPosInches < Math.abs(inToMove) && encoderDriveTimer.seconds() < timeOutB) {
-            opMode.telemetry.addData("In to move:", inToMove);
-            // Updating current pos.
-            currentPosInches = ((Math.abs(rbWheel.getCurrentPosition())) + (Math.abs(lbWheel.getCurrentPosition())) / 2)/ticksPerInch;
-
+        while (((LinearOpMode)opMode).opModeIsActive() && Math.abs(currentPosInches) < Math.abs(inToMove) && encoderDriveTimer.seconds() < timeOutB) {
             // Updating the left and right motor readings.
-            double left = lbWheel.getCurrentPosition();
-            double right = rbWheel.getCurrentPosition();
+            left = lbWheel.getCurrentPosition();
+            right = rbWheel.getCurrentPosition();
+            // Updating current pos.
+            currentPosInches = ((left + right)/2)/ticksPerInch;
 
             // Making division by zero impossible.
             if (left == 0) {
                 left = 1;
+            } else if (right == 0) {
+                right = 1;
             }
 
             // Constantly updating the power to the motors based on how far we have to move. This same line is used in the IMUTurn function. You can easily create proportional control by switching out a few of these variables.
             double power = Math.max(Math.abs(currentPosInches-inToMove)/maxSpeedDistance, minSpeed);
 
-            if (left > right) {
+            if (right > left) {
                 // Calculating how much we are veering.
-                veer = (Math.abs(right / left)) * .975;
+                veer = (Math.abs(right / left)) * .9;
 
                 // Assigning the motor powers. "veer" is a variable accounting for the right side of the drivetrain being faster than the left.
                 if (inToMove >= 0) {
@@ -192,9 +196,9 @@ class BobBase {
                     rbWheel.setPower(-power);
                 }
             }
-            if (right >= left) {
+            if (left >= right) {
                 // Calculating how much we are veering.
-                veer = (Math.abs(left / right)) * .975;
+                veer = (Math.abs(left / right)) * .9;
 
                 // Assigning the motor powers. "veer" is a variable accounting for the right side of the drivetrain being faster than the left.
                 if (inToMove >= 0) {
@@ -229,12 +233,9 @@ class BobBase {
             // 'maxSpeedAngle' is how many degrees of the angle it will turn without slowing down
             float power = Math.max(Math.abs(currentHeading-targetAngle)/maxSpeedAngle, minSpeed);
 
-            
-            if (targetAngle < currentHeading) {
-                if ((currentHeading) < (targetAngle)) {
-                    if ((Math.abs(currentHeading) - Math.abs(targetAngle)) > -2.5){
-                        break;
-                    }
+            if (Math.abs(currentHeading) < Math.abs(targetAngle)) {
+                if ((Math.abs(currentHeading) - Math.abs(targetAngle)) > -2.5){
+                    break;
                 }
             }
 
@@ -278,22 +279,21 @@ class BobBase {
         }
     }// Blue autonomous path.
     public void BlueOne() {
-        EncoderDrive(-16.75,40,.8,3);
+        EncoderDrive(-16.75,40,.4,3);
         ColorSensorReadings();
-        EncoderDrive(3,15,.8,3);
-        IMUTurn(-88f,"r", 200, .5f, 2);
-        EncoderDrive(-19,25,.8,3);
-        IMUTurn(-2f,"l", 200, .5f, 3);
-        EncoderDrive(5.75,12,.8,3);
+        EncoderDrive(3,15,.4,3);
+        IMUTurn(-88f,"r", 200, .35f, 2);
+        EncoderDrive(-19,25,.4,4);
+        IMUTurn(-4f,"l", 120, .3f, 3);
+        EncoderDrive(5.75,12,.4,3);
         CarouselAuto();
-        EncoderDrive(-33, 48, .8, 3);
-        IMUTurn(82,"l", 200, .5f, 3);
-        EncoderDrive(-26, 46, .8, 3);
+        EncoderDrive(-33, 48, .4, 3);
+        IMUTurn(82,"l", 200, .35f, 3);
+        EncoderDrive(-28, 46, .4, 3);
         DeliverBlock();
-        EncoderDrive(29, 52, .8, 3);
-        IMUTurn(7, "r", 200, .5f, 3);
-        EncoderDrive(11, 40, .8, 3);
-
+        EncoderDrive(30, 52, .4, 3);
+        IMUTurn(7, "r", 200, .35f, 3);
+        EncoderDrive(12.5, 40, .4, 3);
         while (((LinearOpMode)opMode).opModeIsActive()) {
             Telemetry();
         }
@@ -306,52 +306,52 @@ class BobBase {
         IMUTurn(86f,"l", 200, .35f, 2);
         EncoderDrive(-19,25,.35,3);
         IMUTurn(2f,"r", 200, .3f, 3);
-        EncoderDrive(5.75,12,.35,3);
+        EncoderDrive(5,12,.35,3);
         CarouselAuto();
         EncoderDrive(-34, 48, .35, 3);
-        IMUTurn(-85,"r", 200, .3f, 3);
+        IMUTurn(-87,"r", 200, .3f, 3);
         EncoderDrive(-27, 46, .38, 3);
         DeliverBlock();
-        EncoderDrive(32, 52, .38, 3);
+        EncoderDrive(31, 52, .38, 3);
         IMUTurn(-4, "l", 200, .34f, 3);
-        EncoderDrive(16, 40, .38, 3);
+        EncoderDrive(13, 40, .38, 3);
     }
 
     public void BlueTwo() {
-        EncoderDrive(-20, 40, .35, 3);
+        EncoderDrive(-21, 40, .35, 3);
         DeliverBlock();
         EncoderDrive(2,14, .35, 3);
         IMUTurn(86, "l", 200, .3f, 3);
-        EncoderDrive(-54, 30, 1, 5);
+        EncoderDrive(-60, 30, 1, 5);
     }
 
     public void RedTwo() {
-        EncoderDrive(-20, 40, .35, 3);
+        EncoderDrive(-21, 40, .35, 3);
         DeliverBlock();
         EncoderDrive(2,14, .35, 3);
         IMUTurn(-86, "r", 200, .3f, 3);
-        EncoderDrive(-54, 30, 1, 5);
+        EncoderDrive(-60, 30, 1, 5);
     }
 
     public void CarouselAuto() {
         basePosNum = BobAuto.posNum;
         if (basePosNum == 1 || basePosNum == 2) {
-            lfWheel.setPower(-.25);
+            lfWheel.setPower(.25);
             carouselSpinnerL.setPower(-.3);
             carouselSpinnerR.setPower(.3);
             motorTimer.reset();
-            while (motorTimer.seconds() < 3 && ((LinearOpMode) opMode).opModeIsActive()) {
+            while (motorTimer.seconds() < 4.5 && ((LinearOpMode) opMode).opModeIsActive()) {
                 Telemetry();
             }
             carouselSpinnerL.setPower(0);
             carouselSpinnerR.setPower(0);
             lfWheel.setPower(0);
         } else if (basePosNum == 3 || basePosNum == 4) {
-            rfWheel.setPower(-.275);
+            rfWheel.setPower(.275);
             carouselSpinnerL.setPower(-.3);
             carouselSpinnerR.setPower(.3);
             motorTimer.reset();
-            while (motorTimer.seconds() < 3 && ((LinearOpMode) opMode).opModeIsActive()) {
+            while (motorTimer.seconds() < 4.5 && ((LinearOpMode) opMode).opModeIsActive()) {
                 Telemetry();
             }
             carouselSpinnerL.setPower(0);
@@ -408,7 +408,6 @@ class BobBase {
         currentHeading = (angles.firstAngle);
         adjCurrentHeading = currentHeading - headingAdjustment;
         opMode.telemetry.addData("Heading: ", adjCurrentHeading);
-        opMode.telemetry.addData("Current pos:", currentPosInches);
         opMode.telemetry.addData("Drivetrain speed: ", drvTrnSpd);
         opMode.telemetry.update();
     }
@@ -430,8 +429,8 @@ class BobBase {
         // Setting some motors to brake and all others to float.
         lfWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         rfWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        lbWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        rbWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        lbWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        rbWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         carouselSpinnerL.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         carouselSpinnerR.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         hopper.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
