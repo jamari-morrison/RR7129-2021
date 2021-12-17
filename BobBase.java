@@ -120,7 +120,7 @@ class BobBase {
             TeleIMUTurn(-12, "r", 270, .3f, 2);
         }
 
-
+        // Speed variation for the drivetrain.
         if (opMode.gamepad1.dpad_up){
             upFlag = true;
         } else {
@@ -143,8 +143,7 @@ class BobBase {
         }
     }
 
-    // try method overloading
-    // Encoder drive function. DISCLAIMER: I did this quickly so it's really ugly. Don't do this next year.
+    // Encoder drive function. DISCLAIMER: I did this quickly, so it's really ugly. Don't do this next year.
     // Like seriously, get a junk drivetrain and program on it; it'll be better than this.
     public void EncoderDrive(double inToMove, double maxSpeedDistance, double minSpeed, float timeOutB) {
         // Resetting the encoders. Encoders are plugged into the lf and rf motors. I am just too lazy to switch the ports on the control and expansion hubs.
@@ -277,7 +276,9 @@ class BobBase {
         } else {
             BarcodePosition = 0;
         }
-    }// Blue autonomous path.
+    }
+
+    // Blue autonomous path. Start next to carousel.
     public void BlueOne() {
         EncoderDrive(-16.75,40,.4,3);
         ColorSensorReadings();
@@ -299,6 +300,7 @@ class BobBase {
         }
     }
 
+    // Red autonomous path. Start next to carousel.
     public void RedOne() {
         EncoderDrive(-16,40,.35,3);
         ColorSensorReadings();
@@ -317,6 +319,7 @@ class BobBase {
         EncoderDrive(13, 40, .38, 3);
     }
 
+    // Blue autonomous path. Start in front of shipping hub.
     public void BlueTwo() {
         EncoderDrive(-21, 40, .35, 3);
         DeliverBlock();
@@ -325,6 +328,8 @@ class BobBase {
         EncoderDrive(-60, 30, 1, 5);
     }
 
+
+    // Red autonomous path. Start in front of shipping hub.
     public void RedTwo() {
         EncoderDrive(-21, 40, .35, 3);
         DeliverBlock();
@@ -333,20 +338,26 @@ class BobBase {
         EncoderDrive(-60, 30, 1, 5);
     }
 
+    // Deliver the duck in autonomous.
     public void CarouselAuto() {
+        // Retrieve the alliance and start position from the autonomous class.
         basePosNum = BobAuto.posNum;
         if (basePosNum == 1 || basePosNum == 2) {
+            // Slowly back into the carousel.
             lfWheel.setPower(.25);
+            // Turn on the carousel spinner for 4.5 seconds.
             carouselSpinnerL.setPower(-.3);
             carouselSpinnerR.setPower(.3);
             motorTimer.reset();
             while (motorTimer.seconds() < 4.5 && ((LinearOpMode) opMode).opModeIsActive()) {
                 Telemetry();
             }
+            // Stop the motors.
             carouselSpinnerL.setPower(0);
             carouselSpinnerR.setPower(0);
             lfWheel.setPower(0);
         } else if (basePosNum == 3 || basePosNum == 4) {
+            // Ditto
             rfWheel.setPower(.275);
             carouselSpinnerL.setPower(-.3);
             carouselSpinnerR.setPower(.3);
@@ -361,12 +372,14 @@ class BobBase {
     }
 
     public void DeliverBlock() {
-        if (BarcodePosition == 0 || BarcodePosition == 2) {
+        if (BarcodePosition == 2) {
+            // Raise the lift for 2 seconds.
             motorTimer.reset();
             lift.setPower(-.6);
             while (motorTimer.seconds() < 2 && ((LinearOpMode) opMode).opModeIsActive()) {
                 Telemetry();
             }
+            // Spin the hopper for 1 second.
             lift.setPower(-.1);
             hopper.setPower(-.4);
             motorTimer.reset();
@@ -374,13 +387,16 @@ class BobBase {
                 Telemetry();
             }
             hopper.setPower(0);
+            // Lower the lift
             lift.setPower(.8);
             motorTimer.reset();
             while (motorTimer.seconds() < 1 && ((LinearOpMode) opMode).opModeIsActive()) {
                 Telemetry();
             }
+            // Stop the lift.
             lift.setPower(0);
         } else if (BarcodePosition == 1) {
+            // Ditto
             motorTimer.reset();
             lift.setPower(-.6);
             while (motorTimer.seconds() < 1.35 && ((LinearOpMode) opMode).opModeIsActive()) {
@@ -398,12 +414,36 @@ class BobBase {
                 Telemetry();
             }
             lift.setPower(0);
+        } else if (BarcodePosition == 0) {
+            motorTimer.reset();
+            lift.setPower(-.6);
+            while (motorTimer.seconds() < .425 && ((LinearOpMode) opMode).opModeIsActive()) {
+            }
+
+            lift.setPower(-.1);
+            hopper.setPower(-.4);
+            motorTimer.reset();
+            while (motorTimer.seconds() < 1 && ((LinearOpMode) opMode).opModeIsActive()) {
+                Telemetry();
+            }
+            hopper.setPower(0);
+            lift.setPower(-.9);
+            motorTimer.reset();
+            while (motorTimer.seconds() < 1 && ((LinearOpMode) opMode).opModeIsActive()) {
+            }
+
+            lift.setPower(.9);
+            motorTimer.reset();
+            while (motorTimer.seconds() < 1 && ((LinearOpMode) opMode).opModeIsActive()) {
+                Telemetry();
+            }
+            lift.setPower(0);
         }
     }
 
     // Telemetry.
     public void Telemetry() {
-        // Initializing the app. in. reading
+        // Initializing the approximate inch reading
         angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
         currentHeading = (angles.firstAngle);
         adjCurrentHeading = currentHeading - headingAdjustment;
