@@ -263,18 +263,35 @@ class BobBase {
 
     // Reading the barcode.
     public void ColorSensorReadings() {
-        // Read the barcode pos for half a second.
-        colorSensorTimer.reset();
-        while (colorSensorTimer.seconds() < .5 && ((LinearOpMode) opMode).opModeIsActive()) {
-            lReading = ((DistanceSensor) colorSensorL).getDistance(DistanceUnit.INCH);
-            rReading = ((DistanceSensor) colorSensorR).getDistance(DistanceUnit.INCH);
-        }
-        if (lReading < 3) {
-            BarcodePosition = 2;
-        } else if (rReading < 3) {
-            BarcodePosition = 1;
-        } else {
-            BarcodePosition = 0;
+        if (basePosNum == 1 || basePosNum == 2) {
+            // Read the barcode pos for half a second.
+            colorSensorTimer.reset();
+            while (colorSensorTimer.seconds() < .5 && ((LinearOpMode) opMode).opModeIsActive()) {
+                lReading = ((DistanceSensor) colorSensorL).getDistance(DistanceUnit.INCH);
+                rReading = ((DistanceSensor) colorSensorR).getDistance(DistanceUnit.INCH);
+            }
+            if (lReading < 3) {
+                BarcodePosition = 2;
+            } else if (rReading < 3) {
+                BarcodePosition = 1;
+            } else {
+                BarcodePosition = 0;
+            }
+        } else if (basePosNum == 3 || basePosNum == 4) {
+            // Read the barcode pos for half a second.
+            colorSensorTimer.reset();
+            while (colorSensorTimer.seconds() < .5 && ((LinearOpMode) opMode).opModeIsActive()) {
+                lReading = ((DistanceSensor) colorSensorL).getDistance(DistanceUnit.INCH);
+                rReading = ((DistanceSensor) colorSensorR).getDistance(DistanceUnit.INCH);
+            }
+
+            if (lReading < 3) {
+                BarcodePosition = 1;
+            } else if (rReading < 3) {
+                BarcodePosition = 0;
+            } else {
+                BarcodePosition = 2;
+            }
         }
     }
 
@@ -282,6 +299,8 @@ class BobBase {
     public void BlueOne() {
         EncoderDrive(-16.75,40,.4,3);
         ColorSensorReadings();
+        opMode.telemetry.addData("Pos: ", BarcodePosition);
+        opMode.telemetry.update();
         EncoderDrive(3,15,.4,3);
         IMUTurn(-88f,"r", 200, .35f, 2);
         EncoderDrive(-19,25,.4,4);
@@ -304,6 +323,8 @@ class BobBase {
     public void RedOne() {
         EncoderDrive(-16,40,.35,3);
         ColorSensorReadings();
+        opMode.telemetry.addData("Pos: ", BarcodePosition);
+        opMode.telemetry.update();
         EncoderDrive(3,15,.35,3);
         IMUTurn(86f,"l", 200, .35f, 2);
         EncoderDrive(-19,25,.35,3);
