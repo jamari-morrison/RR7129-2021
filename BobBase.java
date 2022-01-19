@@ -223,9 +223,9 @@ class BobBase {
     void IMUTurn(float targetAngle, String leftOrRight, int maxSpeedAngle, float minSpeed, float timeOutA) {
         // Resetting our timer
         imuTimer.reset();
-        while (((LinearOpMode)opMode).opModeIsActive() && imuTimer.seconds() < timeOutA) {
+        while (((LinearOpMode)opMode).opModeIsActive()&& imuTimer.seconds() < timeOutA) {
             // Updating our current heading while turning
-            // This records the z axis angle in the variable 'currentHeading'
+            // Since our control Hub is vertical, this records the y axis angle in the variable 'currentHeading'
             angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
             currentHeading = (angles.firstAngle);
             // Calculating the motor power. 'minSpeed' is the slowest speed to turn at.
@@ -344,8 +344,8 @@ class BobBase {
     public void BlueTwo() {
         EncoderDrive(-21, 40, .35, 3);
         DeliverBlock();
-        EncoderDrive(2,14, .35, 3);
-        IMUTurn(86, "l", 200, .3f, 3);
+        EncoderDrive(5,14, .4, 3);
+        IMUTurn(88, "l", 200, .3f, 3);
         EncoderDrive(-60, 30, 1, 5);
     }
 
@@ -354,8 +354,8 @@ class BobBase {
     public void RedTwo() {
         EncoderDrive(-21, 40, .35, 3);
         DeliverBlock();
-        EncoderDrive(2,14, .35, 3);
-        IMUTurn(-86, "r", 200, .3f, 3);
+        EncoderDrive(4,14, .35, 3);
+        IMUTurn(-88, "r", 200, .3f, 3);
         EncoderDrive(-60, 30, 1, 5);
     }
 
