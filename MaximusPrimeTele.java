@@ -2,7 +2,7 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
-@TeleOp(name = "Bobby Tele", group = "Iterative Opmode")
+@TeleOp(name = "Maximus Prime Tele", group = "Iterative Opmode")
 public class MaximusPrimeTele extends OpMode {
     MaximusPrimeBase base;
     @Override
