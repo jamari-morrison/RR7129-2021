@@ -1,12 +1,10 @@
 package org.firstinspires.ftc.teamcode;
-
 import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-
+@Disabled
 @TeleOp(name = "Bob teleop", group = "Iterative Opmode")
 public class BobTeleop extends OpMode {
-
     BobBase base;
     @Override
     public void init() {
@@ -23,7 +21,6 @@ public class BobTeleop extends OpMode {
     }
     @Override
     public void stop() {
-
     }
 }
 

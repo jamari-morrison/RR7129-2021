@@ -251,8 +251,6 @@ class BobBase {
                 rfWheel.setPower(-power);
                 rbWheel.setPower(-power);
             }
-            opMode.telemetry.addData("Heading: ", currentHeading);
-            opMode.telemetry.update();
         }
         // Stopping the motors once we completed our turn
         lfWheel.setPower(0);
@@ -513,9 +511,6 @@ class BobBase {
         parameters.angleUnit           = BNO055IMU.AngleUnit.DEGREES;
         imu = opMode.hardwareMap.get(BNO055IMU.class, "imu");
         imu.initialize(parameters);
-    }
-    public void test() {
-        EncoderDrive(5,10,.5,2);
     }
 
     // IMU turn to use in teleop. See 'IMUTurn' for comments

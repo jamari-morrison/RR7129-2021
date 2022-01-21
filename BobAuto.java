@@ -1,5 +1,4 @@
 package org.firstinspires.ftc.teamcode;
-
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -11,8 +10,6 @@ public class BobAuto extends LinearOpMode {
     ElapsedTime runtime = new ElapsedTime();
     ElapsedTime allianceTimer = new ElapsedTime();
     static int posNum = 1;
-
-
     @Override
     public void runOpMode() throws InterruptedException {
         base = new BobBase(this);
@@ -42,9 +39,7 @@ public class BobAuto extends LinearOpMode {
             }
 
         }
-
         waitForStart();
-
         if (posNum == 1) {
             base.BlueOne();
         }
