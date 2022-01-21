@@ -1,4 +1,5 @@
 package org.firstinspires.ftc.teamcode;
+
 import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
@@ -9,8 +10,10 @@ import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesOrder;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesReference;
 import org.firstinspires.ftc.robotcore.external.navigation.Orientation;
+
 class MaximusPrimeBase {
     OpMode opMode;
+
     // Motor declaration
     DcMotor collectionM, liftM, lSpinnerM, rSpinnerM, lfDrivetrainM, rfDrivetrainM, lbDrivetrainM, rbDrivetrainM;
     // Servo declaration
@@ -36,10 +39,12 @@ class MaximusPrimeBase {
     double STARTING_HEADING = 90;
     float currentHeading = 0;               // Reading from IMU
     boolean isBlue = true;                  // Determines carousel direction
+
     public MaximusPrimeBase(OpMode theOpMode){
         opMode = theOpMode;
         Configuration();
     }
+
     public void DeliverBlockTele() {
         // Raise the lift
         if (!manualLift && opMode.gamepad2.dpad_down && liftAvailability.equals("Low")) {
@@ -69,6 +74,7 @@ class MaximusPrimeBase {
             liftAvailability = "Low";
         }
     }
+
     // All driver controls except for drivetrain controls
     public void DriverControls() {
         // Spin the carousel quickly if the left bumper is pressed
@@ -109,6 +115,7 @@ class MaximusPrimeBase {
             downPersistent = true;
         }
     }
+
     // All operator controls
     public void OperatorControls() {
         // Toggle auto lift
@@ -130,6 +137,7 @@ class MaximusPrimeBase {
             deliveryS.setPosition(0);
         }
     }
+
     // Telemetry to be displayed in teleop
     public void Telemetry() {
         angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
@@ -141,6 +149,7 @@ class MaximusPrimeBase {
         opMode.telemetry.addData("Is lift manual? ", manualLift);
         opMode.telemetry.update();
     }
+
     // Field-centric driver code
     public void UpdateDriveTrain() {
         angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.RADIANS);
@@ -172,6 +181,7 @@ class MaximusPrimeBase {
         rfDrivetrainM.setPower((((speed * (Math.cos(angle))) + turnPower))*drvTrnSpd);
         rbDrivetrainM.setPower((((speed * (Math.sin(angle))) + turnPower))*drvTrnSpd);
     }
+
     public void ResetHeading(){ // Resets the imu heading by adding/subtracting from itself
         if (opMode.gamepad1.b){ // In case something goes wrong, driver can reposition the robot and reset the heading during teleop
             angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.RADIANS);
@@ -184,6 +194,7 @@ class MaximusPrimeBase {
             STARTING_HEADING = angles.thirdAngle;
         }
     }
+
     void IMUTurn(float targetAngle, String leftOrRight, int maxSpeedAngle, float minSpeed, float timeOutA) {
         // Resetting our timer
         imuTimer.reset();
@@ -222,16 +233,19 @@ class MaximusPrimeBase {
         rfDrivetrainM.setPower(0);
         rbDrivetrainM.setPower(0);
     }
+
     // Returns true if we are in initialization
     boolean IsInitialized() {
         return !((LinearOpMode)opMode).isStarted() && !((LinearOpMode)opMode).isStopRequested();
     }
+
     // Pauses code for a set length
     public void Sleep(long ms) {
         if(((LinearOpMode)opMode).opModeIsActive()){
             ((LinearOpMode)opMode).sleep(ms);
         }
     }
+
     public void TeleopAllianceDetermination() {
         if (opMode.gamepad1.x) {
             isBlue = false;
@@ -242,6 +256,7 @@ class MaximusPrimeBase {
         opMode.telemetry.addData("Are we blue? ", isBlue);
         opMode.telemetry.update();
     }
+    
     public void Configuration() {
         collectionM = opMode.hardwareMap.dcMotor.get("collectionM");
         liftM = opMode.hardwareMap.dcMotor.get("liftM");

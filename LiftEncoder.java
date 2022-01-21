@@ -9,7 +9,7 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 @Autonomous(name = "Lift Encoder", group = "nsor")
 public class LiftEncoder extends LinearOpMode
 {
-    DcMotor collectionM, liftM, lSpinnerM, rSpinnerM, lfDrvtrnM, rfDrvtrnM, lbDrvtrnM, rbDrvtrnM;
+    DcMotor liftM, lfDrvtrnM, rfDrvtrnM, lbDrvtrnM, rbDrvtrnM;
 
     @Override public void runOpMode() {
         // Waiting for start
