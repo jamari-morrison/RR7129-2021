@@ -16,6 +16,10 @@ public class MaximusPrimeAuto extends LinearOpMode {
             if (gamepad2.a) {
                 base.BlueOne();
             }
+            if (gamepad2.y){
+                base.ResetEncoders();
+            }
+            base.Telemetry();
         }
     }
 }
