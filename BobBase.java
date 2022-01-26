@@ -331,11 +331,11 @@ class BobBase {
         CarouselAuto();
         EncoderDrive(-34, 48, .35, 3);
         IMUTurn(-87,"r", 200, .3f, 3);
-        EncoderDrive(-27, 46, .38, 3);
+        EncoderDrive(-28.5, 46, .38, 3);
         DeliverBlock();
         EncoderDrive(31, 52, .38, 3);
         IMUTurn(-4, "l", 200, .34f, 3);
-        EncoderDrive(13, 40, .38, 3);
+        EncoderDrive(15, 40, .38, 3);
     }
 
     // Blue autonomous path. Start in front of shipping hub.
@@ -369,7 +369,6 @@ class BobBase {
             carouselSpinnerR.setPower(.3);
             motorTimer.reset();
             while (motorTimer.seconds() < 4.5 && ((LinearOpMode) opMode).opModeIsActive()) {
-                Telemetry();
             }
             // Stop the motors.
             carouselSpinnerL.setPower(0);
@@ -382,7 +381,6 @@ class BobBase {
             carouselSpinnerR.setPower(.3);
             motorTimer.reset();
             while (motorTimer.seconds() < 4.5 && ((LinearOpMode) opMode).opModeIsActive()) {
-                Telemetry();
             }
             carouselSpinnerL.setPower(0);
             carouselSpinnerR.setPower(0);
@@ -396,21 +394,18 @@ class BobBase {
             motorTimer.reset();
             lift.setPower(-.6);
             while (motorTimer.seconds() < 2 && ((LinearOpMode) opMode).opModeIsActive()) {
-                Telemetry();
             }
             // Spin the hopper for 1 second.
             lift.setPower(-.1);
             hopper.setPower(-.4);
             motorTimer.reset();
             while (motorTimer.seconds() < 1 && ((LinearOpMode) opMode).opModeIsActive()) {
-                Telemetry();
             }
             hopper.setPower(0);
             // Lower the lift
             lift.setPower(.8);
             motorTimer.reset();
             while (motorTimer.seconds() < 1 && ((LinearOpMode) opMode).opModeIsActive()) {
-                Telemetry();
             }
             // Stop the lift.
             lift.setPower(0);
@@ -424,13 +419,11 @@ class BobBase {
             hopper.setPower(-.4);
             motorTimer.reset();
             while (motorTimer.seconds() < 1 && ((LinearOpMode) opMode).opModeIsActive()) {
-                Telemetry();
             }
             hopper.setPower(0);
             lift.setPower(.6);
             motorTimer.reset();
             while (motorTimer.seconds() < .7 && ((LinearOpMode) opMode).opModeIsActive()) {
-                Telemetry();
             }
             lift.setPower(0);
         } else if (BarcodePosition == 0) {
@@ -443,7 +436,6 @@ class BobBase {
             hopper.setPower(-.4);
             motorTimer.reset();
             while (motorTimer.seconds() < 1 && ((LinearOpMode) opMode).opModeIsActive()) {
-                Telemetry();
             }
             hopper.setPower(0);
             lift.setPower(-.9);
@@ -454,7 +446,6 @@ class BobBase {
             lift.setPower(.9);
             motorTimer.reset();
             while (motorTimer.seconds() < 1 && ((LinearOpMode) opMode).opModeIsActive()) {
-                Telemetry();
             }
             lift.setPower(0);
         }

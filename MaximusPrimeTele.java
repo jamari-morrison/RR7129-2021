@@ -1,4 +1,5 @@
 package org.firstinspires.ftc.teamcode;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
@@ -11,11 +12,12 @@ public class MaximusPrimeTele extends OpMode {
     }
 
     public void init_loop() {
-        base.TeleopAllianceDetermination();
+        base.AllianceDetermination();
     }
 
     @Override
     public void loop() {
+        base.UpdateColorSensor();
         base.DriverControls();
         base.OperatorControls();
         base.UpdateDriveTrain();

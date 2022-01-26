@@ -4,11 +4,14 @@ import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DistanceSensor;
+import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesOrder;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesReference;
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Orientation;
 
 class MaximusPrimeBase {
@@ -19,6 +22,9 @@ class MaximusPrimeBase {
             lfDrivetrainM, rfDrivetrainM, lbDrivetrainM, rbDrivetrainM;
     // Servo declaration
     Servo deliveryS;
+
+    NormalizedColorSensor leftColorSensor;
+    NormalizedColorSensor rightColorSensor;
     // Timers
     ElapsedTime deliverBlockTimer = new ElapsedTime();
     ElapsedTime imuTimer = new ElapsedTime();
@@ -29,8 +35,6 @@ class MaximusPrimeBase {
     String liftAvailability = "Low";        // Lift state
     boolean manualLift = false;             // Manual or auto lift
     int liftTargetHeight = 1000;            // Height of the target level on shipping hub in ticks
-    int currentLiftHeight = 0;              // The lift's current height
-    int liftOffset = 0;                     // Variable to reset lift home
     double drvTrnSpd = .75;                 // Drivetrain speed
     boolean upFlag = false;                 // Variables used in determining drivetrain speed
     boolean upPersistent = false;
@@ -39,10 +43,6 @@ class MaximusPrimeBase {
     double currentPosInches = 0;            // Variables used in encoder drive
     double veer = 1;
     double ticksPerInch = 42.8;
-    int lfOffset = 0;
-    int rfOffset = 0;
-    int lbOffset = 0;
-    int rbOffset = 0;
     int leftSideEncoder = 0;
     int rightSideEncoder = 0;
     int count = 0;                          // Variables used in field centric driver code
@@ -50,9 +50,15 @@ class MaximusPrimeBase {
     double sum;
     double correct;
     double STARTING_HEADING = 0;
+    double leftDistance = 0;
+    double rightDistance = 0;
     float currentHeading = 0;               // Reading from IMU
+    float headingOffset = 0;
     boolean autoTurn = false;               // Check if we are automatically turning
-    boolean isBlue = true;                  // Determines carousel direction
+    int alliance = 3;                  // Determines carousel direction
+    boolean a = false;
+    boolean b = false;
+    boolean c = false;
 
     public MaximusPrimeBase(OpMode theOpMode){
         opMode = theOpMode;
@@ -72,7 +78,7 @@ class MaximusPrimeBase {
         }
         // Lift controls.
         if (manualLift) {
-            liftM.setPower(opMode.gamepad2.left_stick_y);
+            liftM.setPower(-opMode.gamepad2.left_stick_y);
         }
         // Collection controls.
         collectionM.setPower(opMode.gamepad2.right_stick_y);
@@ -87,17 +93,33 @@ class MaximusPrimeBase {
     public void DriverControls() {                                                                  // Driver controls
         TeleIMUTurn();
         // Spin the carousel quickly if the left bumper is pressed
-        if (opMode.gamepad1.left_bumper) {
-            lSpinnerM.setPower(.5);
-            rSpinnerM.setPower(-.5);
-        }
-        // Spin the carousel slowly if the right bumper is pressed
-        else if (opMode.gamepad1.right_bumper) {
-            lSpinnerM.setPower(.35);
-            rSpinnerM.setPower(-.35);
-        }
-        // Turn the carousel off if no bumpers are pressed
-        else if(!opMode.gamepad1.right_bumper && !opMode.gamepad1.left_bumper) {
+        if (alliance == 1 || alliance == 2) {
+            if (opMode.gamepad1.left_bumper) {
+                lSpinnerM.setPower(-.5);
+                rSpinnerM.setPower(-.5);
+            }
+            // Spin the carousel slowly if the right bumper is pressed
+            else if (opMode.gamepad1.right_bumper) {
+                lSpinnerM.setPower(-.35);
+                rSpinnerM.setPower(-.35);
+            } else {
+                lSpinnerM.setPower(0);
+                rSpinnerM.setPower(0);
+            }
+        } else if (alliance == 3 || alliance == 4) {
+            if (opMode.gamepad1.left_bumper) {
+                lSpinnerM.setPower(.5);
+                rSpinnerM.setPower(.5);
+            }
+            // Spin the carousel slowly if the right bumper is pressed
+            else if (opMode.gamepad1.right_bumper) {
+                lSpinnerM.setPower(.35);
+                rSpinnerM.setPower(.35);
+            } else {
+                lSpinnerM.setPower(0);
+                rSpinnerM.setPower(0);
+            }
+        } else if (!opMode.gamepad1.right_bumper && !opMode.gamepad1.left_bumper) {
             lSpinnerM.setPower(0);
             rSpinnerM.setPower(0);
         }
@@ -129,38 +151,28 @@ class MaximusPrimeBase {
         angles = imu.getAngularOrientation
                 (AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
         currentHeading = (angles.firstAngle);
+        opMode.telemetry.addData("Left: ", leftDistance);
+        opMode.telemetry.addData("Right: ", rightDistance);
         opMode.telemetry.addData("Heading: ", currentHeading);
-        opMode.telemetry.addData("Starting heading: ", STARTING_HEADING);
+        opMode.telemetry.addData("Heading off: ", headingOffset);
         opMode.telemetry.addData("Drivetrain speed: ", drvTrnSpd);
-        opMode.telemetry.addData("Lift height: ", liftM.getCurrentPosition());
-        opMode.telemetry.addData("Lift height (adjusted) : ", currentLiftHeight);
-        opMode.telemetry.addData("LF", lfDrivetrainM.getCurrentPosition()-lfOffset);
-        opMode.telemetry.addData("RF", rfDrivetrainM.getCurrentPosition()-rfOffset);
-        opMode.telemetry.addData("LB", lbDrivetrainM.getCurrentPosition()-lbOffset);
-        opMode.telemetry.addData("RB", rbDrivetrainM.getCurrentPosition()-rbOffset);
-        opMode.telemetry.addData("LFo", lfOffset);
-        opMode.telemetry.addData("RFo", rfOffset);
-        opMode.telemetry.addData("LBo", lbOffset);
-        opMode.telemetry.addData("RBo", rbOffset);
-        opMode.telemetry.addData("Left: ", leftSideEncoder/ticksPerInch);
-        opMode.telemetry.addData("Right: ", rightSideEncoder/ticksPerInch);
         opMode.telemetry.update();
     }
 
     public void DeliverBlockTele() {                                                                // Deliver block tele
-        currentLiftHeight = liftM.getCurrentPosition() - liftOffset;
         if (opMode.gamepad2.dpad_right) {
-            liftOffset = liftM.getCurrentPosition();
+            liftM.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+            liftM.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         }
         if (opMode.gamepad2.dpad_down || opMode.gamepad2.dpad_left || opMode.gamepad2.dpad_up) {
             manualLift = false;
         }
         if (opMode.gamepad2.dpad_down) {
-            liftTargetHeight = 100;
-        } else if (opMode.gamepad2.dpad_left) {
-            liftTargetHeight = 500;
-        } else if (opMode.gamepad2.dpad_up) {
             liftTargetHeight = 1000;
+        } else if (opMode.gamepad2.dpad_left) {
+            liftTargetHeight = 2200;
+        } else if (opMode.gamepad2.dpad_up) {
+            liftTargetHeight = 4200;
         }
         // Raise the lift
         if (opMode.gamepad2.dpad_down || opMode.gamepad2.dpad_left || opMode.gamepad2.dpad_up
@@ -170,36 +182,36 @@ class MaximusPrimeBase {
             liftAvailability = "Raising";
         }
         // Stop the lift at the correct level
-        if (!manualLift && currentLiftHeight > liftTargetHeight
+        if (!manualLift && liftM.getCurrentPosition() > liftTargetHeight
                 && liftAvailability.equals("Raising")) {
             liftM.setPower(0);
             liftAvailability = "High";
         }
         // Open the lift
         if (!manualLift && liftAvailability.equals("High")) {
-            deliveryS.setPosition(100);
+            deliveryS.setPosition(50);
             deliverBlockTimer.reset();
             liftAvailability = "Delivering";
         }
         // Close the lift and lower the lift after 2 seconds
-        if (!manualLift && deliverBlockTimer.seconds() > 2
+        if (!manualLift && deliverBlockTimer.seconds() > 1
                 && liftAvailability.equals("Delivering")) {
             deliveryS.setPosition(0);
             liftAvailability = ("Lowering");
             liftM.setPower(-1);
         }
         // Stop the lift at the correct level
-        if (!manualLift && currentLiftHeight < 0 && liftAvailability.equals("Lowering")) {
+        if (!manualLift && liftM.getCurrentPosition() < 0 && liftAvailability.equals("Lowering")) {
             liftM.setPower(0);
             liftAvailability = "Low";
         }
     }
 
-    void TeleIMUTurn() {
-        imuTimer.reset();
-        angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
+    void TeleIMUTurn() {                                                                            // Teleop IMU turn
+        angles = imu.getAngularOrientation(AxesReference.INTRINSIC,
+                AxesOrder.ZYX, AngleUnit.DEGREES);
         currentHeading = (angles.firstAngle);
-        if (opMode.gamepad1.dpad_up) {
+        if (opMode.gamepad1.dpad_right) {
             autoTurn = true;
             float power = Math.max(Math.abs(currentHeading)/75, .2f);
             if (currentHeading > 2) {
@@ -270,36 +282,57 @@ class MaximusPrimeBase {
         }
     }
 
-    public void TeleopAllianceDetermination() {                                                     // Teleop alliance determination
+    public void AllianceDetermination() {                                                     // Teleop alliance determination
         if (opMode.gamepad1.x) {
-            isBlue = false;
+            alliance = 1;
+        } else if (opMode.gamepad1.a) {
+            alliance = 2;
         } else if (opMode.gamepad1.b) {
-            isBlue = true;
+            alliance = 3;
+        } else if (opMode.gamepad1.y) {
+            alliance = 4;
         }
-        opMode.telemetry.addData("Press X for red and B for blue", "");
-        opMode.telemetry.addData("Are we blue? ", isBlue);
-        opMode.telemetry.update();
+        if (alliance == 1) {
+            opMode.telemetry.addData("Blue 1 ", "");
+            opMode.telemetry.update();
+        } else if (alliance == 2) {
+            opMode.telemetry.addData("Blue 2 ", "");
+            opMode.telemetry.update();
+        } else if (alliance == 3) {
+            opMode.telemetry.addData("Red 1 ", "");
+            opMode.telemetry.update();
+        } else if (alliance == 4) {
+            opMode.telemetry.addData("Red 2 ", "");
+            opMode.telemetry.update();
+        }
     }
 
     //                                  Autonomous Functions
 
-    public void EncoderDrive(double inToMove, double maxSpeedDistance, double minSpeed, float timeOutB) {
+    public void EncoderDrive(double inToMove, double maxSpeedDistance, double minSpeed, float timeOutB, int headingOffset) {
         encoderDriveTimer.reset();
-        lfOffset = lfDrivetrainM.getCurrentPosition();
-        rfOffset = rfDrivetrainM.getCurrentPosition();
-        lbOffset = lbDrivetrainM.getCurrentPosition();
-        rbOffset = rbDrivetrainM.getCurrentPosition();
+        ResetEncoders();
 
-        leftSideEncoder = (((lbDrivetrainM.getCurrentPosition()-lbOffset) + (lfDrivetrainM.getCurrentPosition()-lfOffset))/2);
-        rightSideEncoder = -(((rbDrivetrainM.getCurrentPosition()-rbOffset) + (rfDrivetrainM.getCurrentPosition()-rfOffset))/2);
+        angles = imu.getAngularOrientation
+                (AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
+        currentHeading = (angles.firstAngle);
+
+        leftSideEncoder = (((lbDrivetrainM.getCurrentPosition()) + (lfDrivetrainM.getCurrentPosition()))/2);
+        rightSideEncoder = -(((rbDrivetrainM.getCurrentPosition()) + (rfDrivetrainM.getCurrentPosition()))/2);
         // Initializing the app. in. reading
+        if (leftSideEncoder == 0) {
+            leftSideEncoder = 1;
+        }
+        if (rightSideEncoder == 0) {
+            rightSideEncoder = 1;
+        }
         currentPosInches = ((leftSideEncoder + rightSideEncoder)/2)/ticksPerInch;
 
         // The important part says to keep moving until the current pos is grater than the target pos.
         while (((LinearOpMode)opMode).opModeIsActive() && Math.abs(currentPosInches) < Math.abs(inToMove) && encoderDriveTimer.seconds() < timeOutB) {
             // Updating the left and right motor readings.
-            leftSideEncoder = (((lbDrivetrainM.getCurrentPosition()-lbOffset) + (lfDrivetrainM.getCurrentPosition()-lfOffset))/2);
-            rightSideEncoder = -(((rbDrivetrainM.getCurrentPosition()-rbOffset) + (rfDrivetrainM.getCurrentPosition()-rfOffset))/2);
+            leftSideEncoder = (((lbDrivetrainM.getCurrentPosition()) + (lfDrivetrainM.getCurrentPosition()))/2);
+            rightSideEncoder = -(((rbDrivetrainM.getCurrentPosition()) + (rfDrivetrainM.getCurrentPosition()))/2);
             // Updating current pos.
             currentPosInches = ((leftSideEncoder + rightSideEncoder)/2)/ticksPerInch;
 
@@ -314,57 +347,59 @@ class MaximusPrimeBase {
             // Constantly updating the power to the motors based on how far we have to move. This same line is used in the IMUTurn function. You can easily create proportional control by switching out a few of these variables.
             double power = Math.max(Math.abs(currentPosInches-inToMove)/maxSpeedDistance, minSpeed);
 
-            if (rightSideEncoder > leftSideEncoder) {
-                // Calculating how much we are veering.
-                veer = (Math.abs(rightSideEncoder / leftSideEncoder)) * .9;
-
-                // Assigning the motor powers. "veer" is a variable accounting for the right side of the drivetrain being faster than the left.
-                if (inToMove >= 0) {
-                    lfDrivetrainM.setPower(power );
-                    lbDrivetrainM.setPower(power);
-                    rfDrivetrainM.setPower(-power);
-                    rbDrivetrainM.setPower(-power);
-                } else if (inToMove < 0) {
-                    lfDrivetrainM.setPower(-power);
-                    lbDrivetrainM.setPower(-power);
-                    rfDrivetrainM.setPower(power);
-                    rbDrivetrainM.setPower(power);
-                }
-            }
-            if (leftSideEncoder >= rightSideEncoder) {
-                // Calculating how much we are veering.
-                veer = (Math.abs(leftSideEncoder / rightSideEncoder)) * .9;
+            angles = imu.getAngularOrientation
+                    (AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
+            currentHeading = (angles.firstAngle);
+            // Calculating how much we are veering.
+            veer = Math.min(((currentHeading - headingOffset) / 25), .4);
+            if (veer > 0) {
 
                 // Assigning the motor powers. "veer" is a variable accounting for the right side of the drivetrain being faster than the left.
                 if (inToMove >= 0) {
                     lfDrivetrainM.setPower(power);
                     lbDrivetrainM.setPower(power);
-                    rfDrivetrainM.setPower(-power );
-                    rbDrivetrainM.setPower(-power );
+                    rfDrivetrainM.setPower(-power + veer);
+                    rbDrivetrainM.setPower(-power + veer);
+                } else if (inToMove < 0) {
+                    lfDrivetrainM.setPower(-power +  veer);
+                    lbDrivetrainM.setPower(-power +  veer);
+                    rfDrivetrainM.setPower(power);
+                    rbDrivetrainM.setPower(power);
+                }
+            } else if (veer <= 0){
+
+                // Assigning the motor powers. "veer" is a variable accounting for the right side of the drivetrain being faster than the left.
+                if (inToMove >= 0) {
+                    lfDrivetrainM.setPower(power + veer);
+                    lbDrivetrainM.setPower(power + veer);
+                    rfDrivetrainM.setPower(-power);
+                    rbDrivetrainM.setPower(-power);
                 } else if (inToMove < 0) {
                     lfDrivetrainM.setPower(-power);
                     lbDrivetrainM.setPower(-power);
-                    rfDrivetrainM.setPower(power );
-                    rbDrivetrainM.setPower(power );
+                    rfDrivetrainM.setPower(power +  veer);
+                    rbDrivetrainM.setPower(power +  veer);
                 }
             }
+            Telemetry();
         }
         // Stopping the drivetrain after reaching the target.
         lfDrivetrainM.setPower(0);
         rfDrivetrainM.setPower(0);
         lbDrivetrainM.setPower(0);
         rbDrivetrainM.setPower(0);
-        lfOffset = lfDrivetrainM.getCurrentPosition();
-        rfOffset = rfDrivetrainM.getCurrentPosition();
-        lbOffset = lbDrivetrainM.getCurrentPosition();
-        rbOffset = rbDrivetrainM.getCurrentPosition();
+        ResetEncoders();
     }
 
     public void ResetEncoders() {
-        lfOffset = lfDrivetrainM.getCurrentPosition();
-        rfOffset = rfDrivetrainM.getCurrentPosition();
-        lbOffset = lbDrivetrainM.getCurrentPosition();
-        rbOffset = rbDrivetrainM.getCurrentPosition();
+        lfDrivetrainM.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        rfDrivetrainM.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        lbDrivetrainM.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        rbDrivetrainM.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        lfDrivetrainM.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        rfDrivetrainM.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        lbDrivetrainM.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        rbDrivetrainM.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
     }
 
     void IMUTurn(float targetAngle, String leftOrRight, int maxSpeedAngle, float minSpeed, float timeOutA) {
@@ -381,7 +416,7 @@ class MaximusPrimeBase {
             float power = Math.max(Math.abs(currentHeading-targetAngle)/maxSpeedAngle, minSpeed);
 
             if (Math.abs(currentHeading) < Math.abs(targetAngle)) {
-                if ((Math.abs(currentHeading) - Math.abs(targetAngle)) > -.5){
+                if ((Math.abs(currentHeading) - Math.abs(targetAngle)) > -2){
                     break;
                 }
             }
@@ -407,8 +442,48 @@ class MaximusPrimeBase {
         rbDrivetrainM.setPower(0);
     }
 
+    public void RedOne() {
+        EncoderDrive(-15,25,.3,2,0);
+        Sleep(1000);
+        EncoderDrive(2,25,.3,2,0);
+        IMUTurn(90,"l",180,.15f,3);
+        EncoderDrive(-27,28,.3,2,90);
+        IMUTurn(2,"r",270,.1f,3);
+        EncoderDrive(5,27,.3,2,0);
+        CarouselAuto();
+    }
+
     public void BlueOne() {
-        EncoderDrive(30,20,.3,2);
+
+    }
+
+
+    public void CarouselAuto() {
+        // Retrieve the alliance and start position from the autonomous class.
+        if (alliance == 1 || alliance == 2) {
+            // Slowly back into the carousel.
+            lfDrivetrainM.setPower(.1);
+            lfDrivetrainM.setPower(.1);
+            // Turn on the carousel spinner for 4.5 seconds.
+            lSpinnerM.setPower(.35);
+            rSpinnerM.setPower(.35);
+            Sleep(4500);
+            // Stop the motors.
+            lSpinnerM.setPower(0);
+            rSpinnerM.setPower(0);
+            lfDrivetrainM.setPower(0);
+            lbDrivetrainM.setPower(0);
+        } else if (alliance == 3 || alliance == 4) {
+            // Ditto
+            rfDrivetrainM.setPower(-.1);
+            rbDrivetrainM.setPower(-.1);
+            lSpinnerM.setPower(.35);
+            rSpinnerM.setPower(.35);
+            Sleep(4500);
+            lSpinnerM.setPower(0);
+            rSpinnerM.setPower(0);
+            rfDrivetrainM.setPower(0);
+        }
     }
 
     boolean IsInitialized() {                                                                       // Is initialized
@@ -431,6 +506,8 @@ class MaximusPrimeBase {
         lbDrivetrainM = opMode.hardwareMap.dcMotor.get("lbDrvtrnM");
         rbDrivetrainM = opMode.hardwareMap.dcMotor.get("rbDrvtrnM");
         this.deliveryS = opMode.hardwareMap.get(Servo.class, "deliveryS");
+        leftColorSensor = opMode.hardwareMap.get(NormalizedColorSensor.class, "leftColorSensor");
+        rightColorSensor = opMode.hardwareMap.get(NormalizedColorSensor.class, "rightColorSensor");
         liftM.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         lfDrivetrainM.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         rfDrivetrainM.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
@@ -448,5 +525,10 @@ class MaximusPrimeBase {
         parameters.angleUnit           = BNO055IMU.AngleUnit.DEGREES;
         imu = opMode.hardwareMap.get(BNO055IMU.class, "imu");
         imu.initialize(parameters);
+    }
+
+    public void UpdateColorSensor() {
+        leftDistance = ((DistanceSensor) leftColorSensor).getDistance(DistanceUnit.CM);
+        rightDistance = ((DistanceSensor) rightColorSensor).getDistance(DistanceUnit.CM);
     }
 }

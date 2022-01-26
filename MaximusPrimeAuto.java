@@ -4,6 +4,7 @@ import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+
 @Autonomous(name="Maximus Prime Auto", group="")
 public class MaximusPrimeAuto extends LinearOpMode {
     MaximusPrimeBase base;
@@ -13,8 +14,8 @@ public class MaximusPrimeAuto extends LinearOpMode {
         base = new MaximusPrimeBase(this);
         waitForStart();
         while (opModeIsActive()) {
-            if (gamepad2.a) {
-                base.BlueOne();
+            if (gamepad2.x) {
+                base.RedOne();
             }
             if (gamepad2.y){
                 base.ResetEncoders();
