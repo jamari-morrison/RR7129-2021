@@ -14,11 +14,8 @@ public class MaximusPrimeAuto extends LinearOpMode {
         base = new MaximusPrimeBase(this);
         waitForStart();
         while (opModeIsActive()) {
-            if (gamepad2.x) {
+            if (gamepad2.a) {
                 base.RedOne();
-            }
-            if (gamepad2.y){
-                base.ResetEncoders();
             }
             base.Telemetry();
         }

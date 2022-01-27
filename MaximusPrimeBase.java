@@ -32,7 +32,7 @@ class MaximusPrimeBase {
     // IMU declaration
     BNO055IMU imu;
     Orientation angles;
-    String liftAvailability = "Low";        // Lift state
+    LiftAvailability liftAvailability;
     boolean manualLift = false;             // Manual or auto lift
     int liftTargetHeight = 1000;            // Height of the target level on shipping hub in ticks
     double drvTrnSpd = .75;                 // Drivetrain speed
@@ -45,6 +45,8 @@ class MaximusPrimeBase {
     double ticksPerInch = 42.8;
     int leftSideEncoder = 0;
     int rightSideEncoder = 0;
+    int frontSideEncoder = 0;
+    int backSideEncoder = 0;
     int count = 0;                          // Variables used in field centric driver code
     double angleTest[] = new double[10];
     double sum;
@@ -72,7 +74,7 @@ class MaximusPrimeBase {
         if (opMode.gamepad2.left_stick_y > .5 ||
                 opMode.gamepad2.left_stick_y < -.5) {
             manualLift = true;
-            liftAvailability = "Low";
+            liftAvailability = LiftAvailability.LOW;
         } else if (opMode.gamepad2.b) {
             manualLift = false;
         }
@@ -176,34 +178,34 @@ class MaximusPrimeBase {
         }
         // Raise the lift
         if (opMode.gamepad2.dpad_down || opMode.gamepad2.dpad_left || opMode.gamepad2.dpad_up
-                && liftAvailability.equals("Low")) {
+                && liftAvailability == LiftAvailability.LOW) {
             liftM.setPower(1);
             manualLift = false;
-            liftAvailability = "Raising";
+            liftAvailability = LiftAvailability.RAISING;
         }
         // Stop the lift at the correct level
         if (!manualLift && liftM.getCurrentPosition() > liftTargetHeight
-                && liftAvailability.equals("Raising")) {
+                && liftAvailability == LiftAvailability.RAISING) {
             liftM.setPower(0);
-            liftAvailability = "High";
+            liftAvailability = LiftAvailability.HIGH;
         }
         // Open the lift
-        if (!manualLift && liftAvailability.equals("High")) {
+        if (!manualLift && liftAvailability == LiftAvailability.HIGH) {
             deliveryS.setPosition(50);
             deliverBlockTimer.reset();
-            liftAvailability = "Delivering";
+            liftAvailability = LiftAvailability.DELIVERING;
         }
         // Close the lift and lower the lift after 2 seconds
         if (!manualLift && deliverBlockTimer.seconds() > 1
-                && liftAvailability.equals("Delivering")) {
+                && liftAvailability == LiftAvailability.DELIVERING) {
             deliveryS.setPosition(0);
-            liftAvailability = ("Lowering");
+            liftAvailability = LiftAvailability.LOWERING;
             liftM.setPower(-1);
         }
         // Stop the lift at the correct level
-        if (!manualLift && liftM.getCurrentPosition() < 0 && liftAvailability.equals("Lowering")) {
+        if (!manualLift && liftM.getCurrentPosition() < 0 && liftAvailability == LiftAvailability.LOWERING) {
             liftM.setPower(0);
-            liftAvailability = "Low";
+            liftAvailability = LiftAvailability.LOW;
         }
     }
 
@@ -379,6 +381,88 @@ class MaximusPrimeBase {
                     lbDrivetrainM.setPower(-power);
                     rfDrivetrainM.setPower(power +  veer);
                     rbDrivetrainM.setPower(power +  veer);
+                }
+            }
+            Telemetry();
+        }
+        // Stopping the drivetrain after reaching the target.
+        lfDrivetrainM.setPower(0);
+        rfDrivetrainM.setPower(0);
+        lbDrivetrainM.setPower(0);
+        rbDrivetrainM.setPower(0);
+        ResetEncoders();
+    }
+
+    public void EncoderDriveSideways(double inToMove, double maxSpeedDistance, double minSpeed, float timeOutB, int headingOffset) {
+        encoderDriveTimer.reset();
+        ResetEncoders();
+
+        angles = imu.getAngularOrientation
+                (AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
+        currentHeading = (angles.firstAngle);
+
+        frontSideEncoder = (((rfDrivetrainM.getCurrentPosition()) + (lfDrivetrainM.getCurrentPosition()))/2);
+        rightSideEncoder = -(((rbDrivetrainM.getCurrentPosition()) + (lbDrivetrainM.getCurrentPosition()))/2);
+        // Initializing the app. in. reading
+        if (frontSideEncoder == 0) {
+            frontSideEncoder = 1;
+        }
+        if (backSideEncoder == 0) {
+            backSideEncoder = 1;
+        }
+        currentPosInches = ((frontSideEncoder + backSideEncoder)/2)/ticksPerInch;
+
+        // The important part says to keep moving until the current pos is grater than the target pos.
+        while (((LinearOpMode)opMode).opModeIsActive() && Math.abs(currentPosInches) < Math.abs(inToMove) && encoderDriveTimer.seconds() < timeOutB) {
+            // Updating the left and right motor readings.
+            frontSideEncoder = (((rfDrivetrainM.getCurrentPosition()) + (lfDrivetrainM.getCurrentPosition()))/2);
+            rightSideEncoder = -(((rbDrivetrainM.getCurrentPosition()) + (lbDrivetrainM.getCurrentPosition()))/2);
+            // Updating current pos.
+            currentPosInches = ((frontSideEncoder + backSideEncoder)/2)/ticksPerInch;
+
+            // Making division by zero impossible.
+            if (frontSideEncoder == 0) {
+                frontSideEncoder = 1;
+            }
+            if (backSideEncoder == 0) {
+                backSideEncoder = 1;
+            }
+
+            // Constantly updating the power to the motors based on how far we have to move. This same line is used in the IMUTurn function. You can easily create proportional control by switching out a few of these variables.
+            double power = Math.max(Math.abs(currentPosInches-inToMove)/maxSpeedDistance, minSpeed);
+
+            angles = imu.getAngularOrientation
+                    (AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
+            currentHeading = (angles.firstAngle);
+            // Calculating how much we are veering.
+            veer = Math.min(((currentHeading - headingOffset) / 15), .4);
+            if (veer > 0) {
+
+                // Assigning the motor powers. "veer" is a variable accounting for the right side of the drivetrain being faster than the left.
+                if (inToMove >= 0) {
+                    lfDrivetrainM.setPower(power);
+                    lbDrivetrainM.setPower(-power + veer);
+                    rfDrivetrainM.setPower(power);
+                    rbDrivetrainM.setPower(-power + veer);
+                } else if (inToMove < 0) {
+                    lfDrivetrainM.setPower(-power + veer);
+                    lbDrivetrainM.setPower(power);
+                    rfDrivetrainM.setPower(-power + veer);
+                    rbDrivetrainM.setPower(power);
+                }
+            } else if (veer <= 0){
+
+                // Assigning the motor powers. "veer" is a variable accounting for the right side of the drivetrain being faster than the left.
+                if (inToMove >= 0) {
+                    lfDrivetrainM.setPower(power - veer);
+                    lbDrivetrainM.setPower(-power);
+                    rfDrivetrainM.setPower(power);
+                    rbDrivetrainM.setPower(-power + veer);
+                } else if (inToMove < 0) {
+                    lfDrivetrainM.setPower(-power + veer);
+                    lbDrivetrainM.setPower(power);
+                    rfDrivetrainM.setPower(-power + veer);
+                    rbDrivetrainM.setPower(power);
                 }
             }
             Telemetry();
