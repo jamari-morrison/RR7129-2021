@@ -32,7 +32,6 @@ class MaximusPrimeBase {
     // IMU declaration
     BNO055IMU imu;
     Orientation angles;
-    LiftAvailability liftAvailability;
     boolean manualLift = false;             // Manual or auto lift
     int liftTargetHeight = 1000;            // Height of the target level on shipping hub in ticks
     double drvTrnSpd = .75;                 // Drivetrain speed
@@ -57,7 +56,18 @@ class MaximusPrimeBase {
     float currentHeading = 0;               // Reading from IMU
     float headingOffset = 0;
     boolean autoTurn = false;               // Check if we are automatically turning
-    int alliance = 3;                  // Determines carousel direction
+    private enum LiftAvailability{
+        LOW, RAISING, HIGH, DELIVERING, LOWERING
+    }
+    LiftAvailability liftAvailability = LiftAvailability.LOW;
+    private enum Alliance{
+        RED1, RED2, BLUE1, BLUE2
+    }
+    Alliance alliance = Alliance.BLUE1;
+    private enum ShippingElementPosition{
+        HIGH, MEDIUM, LOW
+    }
+    ShippingElementPosition shippingElementPosition = ShippingElementPosition.LOW;
     boolean a = false;
     boolean b = false;
     boolean c = false;
@@ -95,7 +105,7 @@ class MaximusPrimeBase {
     public void DriverControls() {                                                                  // Driver controls
         TeleIMUTurn();
         // Spin the carousel quickly if the left bumper is pressed
-        if (alliance == 1 || alliance == 2) {
+        if (alliance == Alliance.BLUE1 || alliance == Alliance.BLUE2) {
             if (opMode.gamepad1.left_bumper) {
                 lSpinnerM.setPower(-.5);
                 rSpinnerM.setPower(-.5);
@@ -108,7 +118,7 @@ class MaximusPrimeBase {
                 lSpinnerM.setPower(0);
                 rSpinnerM.setPower(0);
             }
-        } else if (alliance == 3 || alliance == 4) {
+        } else if (alliance == Alliance.RED1 || alliance == Alliance.RED2) {
             if (opMode.gamepad1.left_bumper) {
                 lSpinnerM.setPower(.5);
                 rSpinnerM.setPower(.5);
@@ -286,27 +296,16 @@ class MaximusPrimeBase {
 
     public void AllianceDetermination() {                                                     // Teleop alliance determination
         if (opMode.gamepad1.x) {
-            alliance = 1;
+            alliance = Alliance.BLUE1;
         } else if (opMode.gamepad1.a) {
-            alliance = 2;
+            alliance = Alliance.BLUE2;
         } else if (opMode.gamepad1.b) {
-            alliance = 3;
+            alliance = Alliance.RED1;
         } else if (opMode.gamepad1.y) {
-            alliance = 4;
+            alliance = Alliance.RED2;
         }
-        if (alliance == 1) {
-            opMode.telemetry.addData("Blue 1 ", "");
-            opMode.telemetry.update();
-        } else if (alliance == 2) {
-            opMode.telemetry.addData("Blue 2 ", "");
-            opMode.telemetry.update();
-        } else if (alliance == 3) {
-            opMode.telemetry.addData("Red 1 ", "");
-            opMode.telemetry.update();
-        } else if (alliance == 4) {
-            opMode.telemetry.addData("Red 2 ", "");
-            opMode.telemetry.update();
-        }
+        opMode.telemetry.addData("Starting auto position", alliance);
+        opMode.telemetry.update();
     }
 
     //                                  Autonomous Functions
@@ -544,7 +543,7 @@ class MaximusPrimeBase {
 
     public void CarouselAuto() {
         // Retrieve the alliance and start position from the autonomous class.
-        if (alliance == 1 || alliance == 2) {
+        if (alliance == Alliance.BLUE1 || alliance == Alliance.BLUE2) {
             // Slowly back into the carousel.
             lfDrivetrainM.setPower(.1);
             lfDrivetrainM.setPower(.1);
@@ -557,7 +556,7 @@ class MaximusPrimeBase {
             rSpinnerM.setPower(0);
             lfDrivetrainM.setPower(0);
             lbDrivetrainM.setPower(0);
-        } else if (alliance == 3 || alliance == 4) {
+        } else if (alliance == Alliance.RED1 || alliance == Alliance.RED2) {
             // Ditto
             rfDrivetrainM.setPower(-.1);
             rbDrivetrainM.setPower(-.1);
@@ -567,6 +566,48 @@ class MaximusPrimeBase {
             lSpinnerM.setPower(0);
             rSpinnerM.setPower(0);
             rfDrivetrainM.setPower(0);
+        }
+    }
+
+
+    public void DeliverBlock() {
+        if (shippingElementPosition == ShippingElementPosition.HIGH) {
+            // Raise the lift for 2 seconds.
+            liftM.setPower(-.6);
+            Sleep(2000);
+            // Spin the hopper for 1 second.
+            liftM.setPower(-.1);
+            deliveryS.setPosition(100);
+            Sleep(1000);
+            deliveryS.setPosition(0);
+            // Lower the lift
+            liftM.setPower(.8);
+            Sleep(1000);
+            // Stop the lift.
+            liftM.setPower(0);
+        } else if (shippingElementPosition == ShippingElementPosition.MEDIUM) {
+            // Ditto
+            liftM.setPower(-.6);
+            Sleep(1350);
+            liftM.setPower(-.1);
+            deliveryS.setPosition(100);
+            Sleep(1000);
+            deliveryS.setPosition(0);
+            liftM.setPower(.6);
+            Sleep(700);
+            liftM.setPower(0);
+        } else if (shippingElementPosition == ShippingElementPosition.LOW) {
+            liftM.setPower(-.6);
+            Sleep(425);
+            liftM.setPower(-.1);
+            deliveryS.setPosition(100);
+            Sleep(1000);
+            deliveryS.setPosition(0);
+            liftM.setPower(-.9);
+            Sleep(1000);
+            liftM.setPower(.9);
+            Sleep(1000);
+            liftM.setPower(0);
         }
     }
 
@@ -614,5 +655,37 @@ class MaximusPrimeBase {
     public void UpdateColorSensor() {
         leftDistance = ((DistanceSensor) leftColorSensor).getDistance(DistanceUnit.CM);
         rightDistance = ((DistanceSensor) rightColorSensor).getDistance(DistanceUnit.CM);
+    }
+
+
+    // Reading the barcode.
+    public void ColorSensorReadings() {
+        if (alliance == Alliance.BLUE1 || alliance == Alliance.BLUE2) {
+            // Read the barcode pos for half a second.
+            deliverBlockTimer.reset();
+            while (deliverBlockTimer.seconds() < .5 && ((LinearOpMode) opMode).opModeIsActive()) {
+                UpdateColorSensor();
+            }
+            if (leftDistance < 3) {
+                shippingElementPosition = ShippingElementPosition.MEDIUM;
+            } else if (rightDistance < 3) {
+                shippingElementPosition = ShippingElementPosition.HIGH;
+            } else {
+                shippingElementPosition = ShippingElementPosition.LOW;
+            }
+        } else if (alliance == Alliance.RED1 || alliance == Alliance.RED2) {
+            // Read the barcode pos for half a second.
+            deliverBlockTimer.reset();
+            while (deliverBlockTimer.seconds() < .5 && ((LinearOpMode) opMode).opModeIsActive()) {
+                UpdateColorSensor();
+            }
+            if (leftDistance < 3) {
+                shippingElementPosition = ShippingElementPosition.LOW;
+            } else if (rightDistance < 3) {
+                shippingElementPosition = ShippingElementPosition.MEDIUM;
+            } else {
+                shippingElementPosition = ShippingElementPosition.HIGH;
+            }
+        }
     }
 }
