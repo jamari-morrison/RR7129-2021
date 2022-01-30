@@ -20,5 +20,6 @@ public class MaximusPrimeAuto extends LinearOpMode {
         while (opModeIsActive()) {
             base.Telemetry();
         }
+
     }
 }
