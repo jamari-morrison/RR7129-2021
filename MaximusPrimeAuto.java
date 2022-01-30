@@ -12,11 +12,12 @@ public class MaximusPrimeAuto extends LinearOpMode {
     @Override
     public void runOpMode() throws InterruptedException {
         base = new MaximusPrimeBase(this);
+        while (base.IsInitialized()){
+            base.AllianceDetermination();
+        }
         waitForStart();
+        base.Autonomous();
         while (opModeIsActive()) {
-            if (gamepad2.a) {
-                base.RedOne();
-            }
             base.Telemetry();
         }
     }

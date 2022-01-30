@@ -17,12 +17,10 @@ public class MaximusPrimeTele extends OpMode {
 
     @Override
     public void loop() {
-        base.UpdateColorSensor();
+        base.DeliverBlockTele();
         base.DriverControls();
         base.OperatorControls();
         base.UpdateDriveTrain();
-        base.ResetHeading();
-        base.DeliverBlockTele();
         base.Telemetry();
     }
 

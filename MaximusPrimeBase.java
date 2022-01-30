@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
+
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesOrder;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesReference;
@@ -16,96 +17,118 @@ import org.firstinspires.ftc.robotcore.external.navigation.Orientation;
 
 class MaximusPrimeBase {
     OpMode opMode;
-
     // Motor declaration
     DcMotor collectionM, liftM, lSpinnerM, rSpinnerM,
             lfDrivetrainM, rfDrivetrainM, lbDrivetrainM, rbDrivetrainM;
     // Servo declaration
     Servo deliveryS;
-
-    NormalizedColorSensor leftColorSensor;
-    NormalizedColorSensor rightColorSensor;
-    // Timers
-    ElapsedTime deliverBlockTimer = new ElapsedTime();
-    ElapsedTime imuTimer = new ElapsedTime();
-    ElapsedTime encoderDriveTimer = new ElapsedTime();
-    // IMU declaration
+    // IMU setup
     BNO055IMU imu;
     Orientation angles;
-    boolean manualLift = false;             // Manual or auto lift
-    int liftTargetHeight = 1000;            // Height of the target level on shipping hub in ticks
-    double drvTrnSpd = .75;                 // Drivetrain speed
-    boolean upFlag = false;                 // Variables used in determining drivetrain speed
-    boolean upPersistent = false;
-    boolean downFlag = false;
-    boolean downPersistent = false;
-    double currentPosInches = 0;            // Variables used in encoder drive
-    double veer = 1;
-    double ticksPerInch = 42.8;
-    int leftSideEncoder = 0;
-    int rightSideEncoder = 0;
-    int frontSideEncoder = 0;
-    int backSideEncoder = 0;
-    int count = 0;                          // Variables used in field centric driver code
-    double angleTest[] = new double[10];
-    double sum;
-    double correct;
-    double STARTING_HEADING = 0;
-    double leftDistance = 0;
-    double rightDistance = 0;
-    float currentHeading = 0;               // Reading from IMU
-    float headingOffset = 0;
-    boolean autoTurn = false;               // Check if we are automatically turning
-    private enum LiftAvailability{
-        LOW, RAISING, HIGH, DELIVERING, LOWERING
+    // Color sensor setup
+    NormalizedColorSensor leftColorSensor;
+    NormalizedColorSensor rightColorSensor;
+    NormalizedColorSensor collectionColorSensor;
+    // Timers
+    ElapsedTime genericTimer = new ElapsedTime();
+    ElapsedTime imuTimer = new ElapsedTime();
+    ElapsedTime encoderDriveTimer = new ElapsedTime();
+                        /*          AUTONOMOUS AND TELEOP VARIABLES         */
+    // Deliver block variables
+    LiftAvailability liftAvailability = LiftAvailability.OFF;
+    private enum LiftAvailability{                      // Enumerator for automatic delivery
+        LOW, RAISING, DELIVERING, LOWERING, OFF
     }
-    LiftAvailability liftAvailability = LiftAvailability.LOW;
+    // The height of the high goal in ticks
+    int highGoal = 4200;
+    // The height of the middle goal in ticks
+    int middleGoal = 2200;
+    // The height of the low goal in ticks
+    int lowGoal = 1000;
+    // The height of our resting position in ticks. This is 100 because the lift will overshoot.
+    int restingPosition = 100;
+    // Height of the target level on shipping hub in ticks
+    int liftTargetHeight = lowGoal;
+    // Enumerator for determining alliance and autonomous positions
+    Alliance alliance = Alliance.BLUE1;
     private enum Alliance{
         RED1, RED2, BLUE1, BLUE2
     }
-    Alliance alliance = Alliance.BLUE1;
-    private enum ShippingElementPosition{
-        HIGH, MEDIUM, LOW
-    }
+    // Other variables
+    // Reading from IMU
+    float currentHeading = 0;
+    // Check if we are automatically turning
+    boolean autoTurn = false;                           // Check if we are automatically turning
+                        /*                TELEOP VARIABLES               */
+    // Variables used in determining drivetrain speed
+    double drvTrnSpd = .75;
+    boolean upFlag = false;
+    boolean upPersistent = false;
+    boolean downFlag = false;
+    boolean downPersistent = false;
+    // Variables used in field centric driver code
+    int count = 0;
+    double[] angleTest = new double[10];
+    double sum;
+    double correct;
+    double STARTING_HEADING = 0;
+                        /*             AUTONOMOUS VARIABLES             */
+    // Variables used in encoder drive
+    // Our current linear position in inches
+    double currentPosInches = 0;
+    // How much we are veering during a movement
+    double veer = 1;
+    // How many ticks there are in roughly one inch of movement
+    double ticksPerInch = 42.8;
+    // The average of the left wheels' encoder readings
+    int leftSideEncoder = 0;
+    // The average of the right wheels' encoder readings
+    int rightSideEncoder = 0;
+    // The average of the right wheels' encoder readings
+    int frontSideEncoder = 0;
+    // The average of the back wheels' encoder readings
+    int backSideEncoder = 0;
+    // The distance the left Color Sensor V3 is seeing
+    double leftDistance = 0;
+    // The distance the right Color Sensor V3 is seeing
+    double rightDistance = 0;
+    // What angle we would like to end our movement at
+    float headingOffset = 0;
+    // The position we should score the Pre-Loaded Box in autonomous
     ShippingElementPosition shippingElementPosition = ShippingElementPosition.LOW;
-    boolean a = false;
-    boolean b = false;
-    boolean c = false;
-
+    private enum ShippingElementPosition{
+        HIGH, MIDDLE, LOW
+    }
+    // Link classes and run the configuration function
     public MaximusPrimeBase(OpMode theOpMode){
         opMode = theOpMode;
         Configuration();
     }
-
-
-    //                                  Teleop functions
-    public void OperatorControls() {                                                                // Operator controls
-        // Toggle auto lift
-        if (opMode.gamepad2.left_stick_y > .5 ||
-                opMode.gamepad2.left_stick_y < -.5) {
-            manualLift = true;
-            liftAvailability = LiftAvailability.LOW;
-        } else if (opMode.gamepad2.b) {
-            manualLift = false;
+                                            /*Teleop Functions*/
+    public void OperatorControls() {                                                                // Operator Controls
+        // Turn off the automatic the lift if the joystick is used
+        if (opMode.gamepad2.left_stick_y > .5 || opMode.gamepad2.left_stick_y < -.5) {
+            liftAvailability = LiftAvailability.OFF;
         }
         // Lift controls.
-        if (manualLift) {
+        if (liftAvailability == LiftAvailability.OFF) {
             liftM.setPower(-opMode.gamepad2.left_stick_y);
         }
         // Collection controls.
         collectionM.setPower(opMode.gamepad2.right_stick_y);
-        // Open/close delivery servo
+        // Open/close delivery servo                                                                                        HELP PLS
         if (opMode.gamepad2.y) {
             deliveryS.setPosition(100);
         } else if (opMode.gamepad2.x) {
             deliveryS.setPosition(0);
         }
     }
-
     public void DriverControls() {                                                                  // Driver controls
         TeleIMUTurn();
-        // Spin the carousel quickly if the left bumper is pressed
+        // Duck delivery controls
+        // Clockwise for blue
         if (alliance == Alliance.BLUE1 || alliance == Alliance.BLUE2) {
+            // Spin the carousel quickly if the left bumper is pressed
             if (opMode.gamepad1.left_bumper) {
                 lSpinnerM.setPower(-.5);
                 rSpinnerM.setPower(-.5);
@@ -114,11 +137,16 @@ class MaximusPrimeBase {
             else if (opMode.gamepad1.right_bumper) {
                 lSpinnerM.setPower(-.35);
                 rSpinnerM.setPower(-.35);
-            } else {
+            }
+            // Turn it off if neither are pressed
+            else {
                 lSpinnerM.setPower(0);
                 rSpinnerM.setPower(0);
             }
-        } else if (alliance == Alliance.RED1 || alliance == Alliance.RED2) {
+        }
+        // Counter-clockwise for red
+        else if (alliance == Alliance.RED1 || alliance == Alliance.RED2) {
+            // Spin the carousel quickly if the left bumper is pressed
             if (opMode.gamepad1.left_bumper) {
                 lSpinnerM.setPower(.5);
                 rSpinnerM.setPower(.5);
@@ -127,13 +155,12 @@ class MaximusPrimeBase {
             else if (opMode.gamepad1.right_bumper) {
                 lSpinnerM.setPower(.35);
                 rSpinnerM.setPower(.35);
-            } else {
+            }
+            // Turn it off if neither are pressed
+            else {
                 lSpinnerM.setPower(0);
                 rSpinnerM.setPower(0);
             }
-        } else if (!opMode.gamepad1.right_bumper && !opMode.gamepad1.left_bumper) {
-            lSpinnerM.setPower(0);
-            rSpinnerM.setPower(0);
         }
         // Speed variation for the drivetrain.
         if (opMode.gamepad1.dpad_up){
@@ -158,95 +185,103 @@ class MaximusPrimeBase {
         }
 
     }
-
-    public void Telemetry() {                                                                       // Telemetry
-        angles = imu.getAngularOrientation
-                (AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
-        currentHeading = (angles.firstAngle);
-        opMode.telemetry.addData("Left: ", leftDistance);
-        opMode.telemetry.addData("Right: ", rightDistance);
-        opMode.telemetry.addData("Heading: ", currentHeading);
-        opMode.telemetry.addData("Heading off: ", headingOffset);
-        opMode.telemetry.addData("Drivetrain speed: ", drvTrnSpd);
-        opMode.telemetry.update();
-    }
-
     public void DeliverBlockTele() {                                                                // Deliver block tele
+        // Reset home encoder reading if dpad right is pressed
         if (opMode.gamepad2.dpad_right) {
             liftM.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
             liftM.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         }
-        if (opMode.gamepad2.dpad_down || opMode.gamepad2.dpad_left || opMode.gamepad2.dpad_up) {
-            manualLift = false;
-        }
+        // Turn on automatic delivery and set target location to the low, middle or
+        // high goals based on what dpad button is pressed
         if (opMode.gamepad2.dpad_down) {
-            liftTargetHeight = 1000;
+            liftTargetHeight = lowGoal;
+            liftAvailability = LiftAvailability.LOW;
         } else if (opMode.gamepad2.dpad_left) {
-            liftTargetHeight = 2200;
+            liftTargetHeight = middleGoal;
+            liftAvailability = LiftAvailability.LOW;
         } else if (opMode.gamepad2.dpad_up) {
-            liftTargetHeight = 4200;
-        }
-        // Raise the lift
-        if (opMode.gamepad2.dpad_down || opMode.gamepad2.dpad_left || opMode.gamepad2.dpad_up
-                && liftAvailability == LiftAvailability.LOW) {
-            liftM.setPower(1);
-            manualLift = false;
-            liftAvailability = LiftAvailability.RAISING;
-        }
-        // Stop the lift at the correct level
-        if (!manualLift && liftM.getCurrentPosition() > liftTargetHeight
-                && liftAvailability == LiftAvailability.RAISING) {
-            liftM.setPower(0);
-            liftAvailability = LiftAvailability.HIGH;
-        }
-        // Open the lift
-        if (!manualLift && liftAvailability == LiftAvailability.HIGH) {
-            deliveryS.setPosition(50);
-            deliverBlockTimer.reset();
-            liftAvailability = LiftAvailability.DELIVERING;
-        }
-        // Close the lift and lower the lift after 2 seconds
-        if (!manualLift && deliverBlockTimer.seconds() > 1
-                && liftAvailability == LiftAvailability.DELIVERING) {
-            deliveryS.setPosition(0);
-            liftAvailability = LiftAvailability.LOWERING;
-            liftM.setPower(-1);
-        }
-        // Stop the lift at the correct level
-        if (!manualLift && liftM.getCurrentPosition() < 0 && liftAvailability == LiftAvailability.LOWERING) {
-            liftM.setPower(0);
+            liftTargetHeight = highGoal;
             liftAvailability = LiftAvailability.LOW;
         }
-    }
 
+        // State machine to deliver the freight without any loops
+        switch (liftAvailability) {
+                // If the lift is low/unactivated and one of the dpad
+                // buttons is pressed, begin raising the lift
+            case LOW:
+                if (opMode.gamepad2.dpad_down || opMode.gamepad2.dpad_left
+                        || opMode.gamepad2.dpad_up) {
+                    liftM.setPower(1);
+                    liftAvailability = LiftAvailability.RAISING;
+                }
+                break;
+                // If the lift has reached it's target position, begin delivering the freight
+            case RAISING:
+                if (liftM.getCurrentPosition() > liftTargetHeight) {
+                    liftM.setPower(0);
+                    deliveryS.setPosition(50);
+                    genericTimer.reset();
+                    liftAvailability = LiftAvailability.DELIVERING;
+                }
+                break;
+                // After the servo has been open for two seconds,
+                // close the delivery and lower the lift
+            case DELIVERING:
+                if (genericTimer.seconds() > 1 &&
+                        liftAvailability == LiftAvailability.DELIVERING) {
+                    deliveryS.setPosition(0);
+                    liftM.setPower(-1);
+                    liftAvailability = LiftAvailability.LOWERING;
+                }
+                break;
+                // Once the lift reaches the low position, stop the motor
+            // and allow for this switch statement to begin again
+            case LOWERING:
+                if (liftM.getCurrentPosition() < restingPosition) {
+                    liftM.setPower(0);
+                    liftAvailability = LiftAvailability.LOW;
+                }
+                break;
+        }
+    }
     void TeleIMUTurn() {                                                                            // Teleop IMU turn
+        // Update our current heading
         angles = imu.getAngularOrientation(AxesReference.INTRINSIC,
                 AxesOrder.ZYX, AngleUnit.DEGREES);
         currentHeading = (angles.firstAngle);
+        // If the dpad is pressed, determine which way to turn
         if (opMode.gamepad1.dpad_right) {
+            // Turn off the manual drivetrain movement
             autoTurn = true;
+            // Determine our speed based on how far a way we are from the target
             float power = Math.max(Math.abs(currentHeading)/75, .2f);
+            // If we are to the left of the target, turn right
             if (currentHeading > 2) {
                 lfDrivetrainM.setPower(power);
                 lbDrivetrainM.setPower(power);
                 rfDrivetrainM.setPower(power);
                 rbDrivetrainM.setPower(power);
-            } else if (currentHeading < -2) {
+            }
+            // If we are to the right of the target, turn left
+            else if (currentHeading < -2) {
                 lfDrivetrainM.setPower(-power);
                 lbDrivetrainM.setPower(-power);
                 rfDrivetrainM.setPower(-power);
                 rbDrivetrainM.setPower(-power);
-            } else {
+            }
+            // If we are within two degrees of the target, stop
+            else {
                 lfDrivetrainM.setPower(0);
                 lbDrivetrainM.setPower(0);
                 rfDrivetrainM.setPower(0);
                 rbDrivetrainM.setPower(0);
             }
-        } else {
+        }
+        // If the automatic turn button is not pressed, turn on the manual drivetrain
+        else {
             autoTurn = false;
         }
     }
-
     public void UpdateDriveTrain() {                                                                // Field-centric driver code
         angles = imu.getAngularOrientation
                 (AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.RADIANS);
@@ -262,7 +297,7 @@ class MaximusPrimeBase {
                 angleTest[count] = angle;
                 count++;
             }
-            else if (count >= 10){
+            else {
                 sum = (angleTest[1] + angleTest[2] + angleTest[3] + angleTest[4] + angleTest[0]
                         + angleTest[5] + angleTest[6] + angleTest[7] + angleTest[8]
                         + angleTest[9])/10;
@@ -284,104 +319,100 @@ class MaximusPrimeBase {
             rbDrivetrainM.setPower((((speed * (Math.sin(angle))) + turnPower)) * drvTrnSpd);
         }
     }
-
-    public void ResetHeading(){                                                                     // Reset heading
-        if (opMode.gamepad1.b){
-            angles = imu.getAngularOrientation
-                (AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
-            currentHeading = (angles.firstAngle);
-            STARTING_HEADING = angles.firstAngle;
-        }
-    }
-
-    public void AllianceDetermination() {                                                     // Teleop alliance determination
-        if (opMode.gamepad1.x) {
-            alliance = Alliance.BLUE1;
-        } else if (opMode.gamepad1.a) {
-            alliance = Alliance.BLUE2;
-        } else if (opMode.gamepad1.b) {
-            alliance = Alliance.RED1;
-        } else if (opMode.gamepad1.y) {
-            alliance = Alliance.RED2;
-        }
-        opMode.telemetry.addData("Starting auto position", alliance);
-        opMode.telemetry.update();
-    }
-
-    //                                  Autonomous Functions
-
-    public void EncoderDrive(double inToMove, double maxSpeedDistance, double minSpeed, float timeOutB, int headingOffset) {
+                                            /*Autonomous Functions*/
+    public void EncoderDrive(double inToMove, double maxSpeedDistance,                              // Encoder drive
+                             double minSpeed, float timeOutB, int headingOffset) {
+        // Reset the stall out timer
         encoderDriveTimer.reset();
+        // Reset the encoders before moving
         ResetEncoders();
-
-        angles = imu.getAngularOrientation
-                (AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
-        currentHeading = (angles.firstAngle);
-
-        leftSideEncoder = (((lbDrivetrainM.getCurrentPosition()) + (lfDrivetrainM.getCurrentPosition()))/2);
-        rightSideEncoder = -(((rbDrivetrainM.getCurrentPosition()) + (rfDrivetrainM.getCurrentPosition()))/2);
-        // Initializing the app. in. reading
+        // Find the average of the encoders on the left side of the drivetrain
+        leftSideEncoder = (((lbDrivetrainM.getCurrentPosition()) +
+                (lfDrivetrainM.getCurrentPosition()))/2);
+        // Find the average of the encoders on the right side of the drivetrain
+        rightSideEncoder = -(((rbDrivetrainM.getCurrentPosition()) +
+                (rfDrivetrainM.getCurrentPosition()))/2);
+        // We divide a number by this variable, so this make division by zero impossible
         if (leftSideEncoder == 0) {
             leftSideEncoder = 1;
         }
+        // We divide a number by this variable, so this make division by zero impossible
         if (rightSideEncoder == 0) {
             rightSideEncoder = 1;
         }
+        // Find the average of the entire drivetrain
         currentPosInches = ((leftSideEncoder + rightSideEncoder)/2)/ticksPerInch;
 
-        // The important part says to keep moving until the current pos is grater than the target pos.
-        while (((LinearOpMode)opMode).opModeIsActive() && Math.abs(currentPosInches) < Math.abs(inToMove) && encoderDriveTimer.seconds() < timeOutB) {
-            // Updating the left and right motor readings.
-            leftSideEncoder = (((lbDrivetrainM.getCurrentPosition()) + (lfDrivetrainM.getCurrentPosition()))/2);
-            rightSideEncoder = -(((rbDrivetrainM.getCurrentPosition()) + (rfDrivetrainM.getCurrentPosition()))/2);
+        // The important part says to keep moving until the
+        // current position is grater than the target position
+        while (((LinearOpMode)opMode).opModeIsActive() && Math.abs(currentPosInches) <
+                Math.abs(inToMove) && encoderDriveTimer.seconds() < timeOutB) {
+            // Find the average of the encoders on the left side of the drivetrain
+            leftSideEncoder = (((lbDrivetrainM.getCurrentPosition()) +
+                    (lfDrivetrainM.getCurrentPosition()))/2);
+            // Find the average of the encoders on the right side of the drivetrain
+            rightSideEncoder = -(((rbDrivetrainM.getCurrentPosition()) +
+                    (rfDrivetrainM.getCurrentPosition()))/2);
             // Updating current pos.
             currentPosInches = ((leftSideEncoder + rightSideEncoder)/2)/ticksPerInch;
-
-            // Making division by zero impossible.
+            // We divide a number by this variable, so this make division by zero impossible
             if (leftSideEncoder == 0) {
                 leftSideEncoder = 1;
             }
+            // We divide a number by this variable, so this make division by zero impossible
             if (rightSideEncoder == 0) {
                 rightSideEncoder = 1;
             }
 
-            // Constantly updating the power to the motors based on how far we have to move. This same line is used in the IMUTurn function. You can easily create proportional control by switching out a few of these variables.
+            // Constantly updating the power to the motors based on how far we have to move.
             double power = Math.max(Math.abs(currentPosInches-inToMove)/maxSpeedDistance, minSpeed);
-
+            // Update our current heading
             angles = imu.getAngularOrientation
                     (AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
             currentHeading = (angles.firstAngle);
-            // Calculating how much we are veering.
+            // Calculate how much we are veering using the Control Hub's IMU sensor
             veer = Math.min(((currentHeading - headingOffset) / 25), .4);
+            // If we are veering so that we are spinning clockwise,
+            // subtract power from the appropriate motors
             if (veer > 0) {
-
-                // Assigning the motor powers. "veer" is a variable accounting for the right side of the drivetrain being faster than the left.
+                // If we are moving forward, apply positive and
+                // negative motor powers to the appropriate motors
                 if (inToMove >= 0) {
                     lfDrivetrainM.setPower(power);
                     lbDrivetrainM.setPower(power);
                     rfDrivetrainM.setPower(-power + veer);
                     rbDrivetrainM.setPower(-power + veer);
-                } else if (inToMove < 0) {
+                }
+                // If we are moving backwards, apply positive and
+                // negative motor powers to the appropriate motors
+                else if (inToMove < 0) {
                     lfDrivetrainM.setPower(-power +  veer);
                     lbDrivetrainM.setPower(-power +  veer);
                     rfDrivetrainM.setPower(power);
                     rbDrivetrainM.setPower(power);
                 }
-            } else if (veer <= 0){
-
-                // Assigning the motor powers. "veer" is a variable accounting for the right side of the drivetrain being faster than the left.
+            }
+            // If we are veering so that we are spinning counter-clockwise,
+            // subtract power from the appropriate motors
+            else if (veer <= 0){
+                // If we are moving forward, apply positive and
+                // negative motor powers to the appropriate motors
                 if (inToMove >= 0) {
                     lfDrivetrainM.setPower(power + veer);
                     lbDrivetrainM.setPower(power + veer);
                     rfDrivetrainM.setPower(-power);
                     rbDrivetrainM.setPower(-power);
-                } else if (inToMove < 0) {
+                }
+                // If we are moving backwards, apply positive and
+                // negative motor powers to the appropriate motors
+                else if (inToMove < 0) {
                     lfDrivetrainM.setPower(-power);
                     lbDrivetrainM.setPower(-power);
                     rfDrivetrainM.setPower(power +  veer);
                     rbDrivetrainM.setPower(power +  veer);
                 }
             }
+            // Update telemetry
             Telemetry();
         }
         // Stopping the drivetrain after reaching the target.
@@ -389,10 +420,12 @@ class MaximusPrimeBase {
         rfDrivetrainM.setPower(0);
         lbDrivetrainM.setPower(0);
         rbDrivetrainM.setPower(0);
+        // Reset encoders after movement
         ResetEncoders();
     }
-
-    public void EncoderDriveSideways(double inToMove, double maxSpeedDistance, double minSpeed, float timeOutB, int headingOffset) {
+    public void EncoderDriveSideways(double inToMove, double maxSpeedDistance,                      // Encoder Drive Sideways
+                                     double minSpeed, float timeOutB, int headingOffset) {
+        // SEE ENCODERDRIVE FOR DOCUMENTATION
         encoderDriveTimer.reset();
         ResetEncoders();
 
@@ -400,9 +433,11 @@ class MaximusPrimeBase {
                 (AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
         currentHeading = (angles.firstAngle);
 
-        frontSideEncoder = (((rfDrivetrainM.getCurrentPosition()) + (lfDrivetrainM.getCurrentPosition()))/2);
-        rightSideEncoder = -(((rbDrivetrainM.getCurrentPosition()) + (lbDrivetrainM.getCurrentPosition()))/2);
-        // Initializing the app. in. reading
+        frontSideEncoder = (((rfDrivetrainM.getCurrentPosition()) +
+                (lfDrivetrainM.getCurrentPosition()))/2);
+        rightSideEncoder = -(((rbDrivetrainM.getCurrentPosition()) +
+                (lbDrivetrainM.getCurrentPosition()))/2);
+
         if (frontSideEncoder == 0) {
             frontSideEncoder = 1;
         }
@@ -410,34 +445,25 @@ class MaximusPrimeBase {
             backSideEncoder = 1;
         }
         currentPosInches = ((frontSideEncoder + backSideEncoder)/2)/ticksPerInch;
-
-        // The important part says to keep moving until the current pos is grater than the target pos.
-        while (((LinearOpMode)opMode).opModeIsActive() && Math.abs(currentPosInches) < Math.abs(inToMove) && encoderDriveTimer.seconds() < timeOutB) {
-            // Updating the left and right motor readings.
-            frontSideEncoder = (((rfDrivetrainM.getCurrentPosition()) + (lfDrivetrainM.getCurrentPosition()))/2);
-            rightSideEncoder = -(((rbDrivetrainM.getCurrentPosition()) + (lbDrivetrainM.getCurrentPosition()))/2);
-            // Updating current pos.
+        while (((LinearOpMode)opMode).opModeIsActive() && Math.abs(currentPosInches) <
+                Math.abs(inToMove) && encoderDriveTimer.seconds() < timeOutB) {
+            frontSideEncoder = (((rfDrivetrainM.getCurrentPosition()) +
+                    (lfDrivetrainM.getCurrentPosition()))/2);
+            rightSideEncoder = -(((rbDrivetrainM.getCurrentPosition()) +
+                    (lbDrivetrainM.getCurrentPosition()))/2);
             currentPosInches = ((frontSideEncoder + backSideEncoder)/2)/ticksPerInch;
-
-            // Making division by zero impossible.
             if (frontSideEncoder == 0) {
                 frontSideEncoder = 1;
             }
             if (backSideEncoder == 0) {
                 backSideEncoder = 1;
             }
-
-            // Constantly updating the power to the motors based on how far we have to move. This same line is used in the IMUTurn function. You can easily create proportional control by switching out a few of these variables.
             double power = Math.max(Math.abs(currentPosInches-inToMove)/maxSpeedDistance, minSpeed);
-
             angles = imu.getAngularOrientation
                     (AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
             currentHeading = (angles.firstAngle);
-            // Calculating how much we are veering.
             veer = Math.min(((currentHeading - headingOffset) / 15), .4);
             if (veer > 0) {
-
-                // Assigning the motor powers. "veer" is a variable accounting for the right side of the drivetrain being faster than the left.
                 if (inToMove >= 0) {
                     lfDrivetrainM.setPower(power);
                     lbDrivetrainM.setPower(-power + veer);
@@ -450,8 +476,6 @@ class MaximusPrimeBase {
                     rbDrivetrainM.setPower(power);
                 }
             } else if (veer <= 0){
-
-                // Assigning the motor powers. "veer" is a variable accounting for the right side of the drivetrain being faster than the left.
                 if (inToMove >= 0) {
                     lfDrivetrainM.setPower(power - veer);
                     lbDrivetrainM.setPower(-power);
@@ -466,51 +490,39 @@ class MaximusPrimeBase {
             }
             Telemetry();
         }
-        // Stopping the drivetrain after reaching the target.
         lfDrivetrainM.setPower(0);
         rfDrivetrainM.setPower(0);
         lbDrivetrainM.setPower(0);
         rbDrivetrainM.setPower(0);
         ResetEncoders();
     }
-
-    public void ResetEncoders() {
-        lfDrivetrainM.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        rfDrivetrainM.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        lbDrivetrainM.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        rbDrivetrainM.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        lfDrivetrainM.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        rfDrivetrainM.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        lbDrivetrainM.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        rbDrivetrainM.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-    }
-
-    void IMUTurn(float targetAngle, String leftOrRight, int maxSpeedAngle, float minSpeed, float timeOutA) {
-        // Resetting our timer
+    void IMUTurn(float targetAngle, String leftOrRight,                                             // IMU Turn
+                 float minSpeed, float timeOutA) {
+        // Reset the stall out timer
         imuTimer.reset();
         while (((LinearOpMode)opMode).opModeIsActive()&& imuTimer.seconds() < timeOutA) {
-            // Updating our current heading while turning
-            // This records the z axis angle in the variable 'currentHeading'
+            // Update our current heading while turning
             angles = imu.getAngularOrientation
                     (AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
             currentHeading = (angles.firstAngle);
-            // Calculating the motor power. 'minSpeed' is the slowest speed to turn at.
-            // 'maxSpeedAngle' is how many degrees of the angle it will turn without slowing down
-            float power = Math.max(Math.abs(currentHeading-targetAngle)/maxSpeedAngle, minSpeed);
-
+            // Calculating the motor powers based on how far away we are form the target angle
+            float power = Math.max(Math.abs(currentHeading-targetAngle)/270, minSpeed);
+            // If we are close enough to our target angle, break out of the while loop
             if (Math.abs(currentHeading) < Math.abs(targetAngle)) {
                 if ((Math.abs(currentHeading) - Math.abs(targetAngle)) > -2){
                     break;
                 }
             }
-
+            // If we are turning left, apply positive and negative powers to the appropriate motors
             if (leftOrRight.equals("left") || leftOrRight.equals("l")){
                 // Actually applying the power
                 lfDrivetrainM.setPower(-power);
                 lbDrivetrainM.setPower(-power);
                 rfDrivetrainM.setPower(-power);
                 rbDrivetrainM.setPower(-power);
-            } else {
+            }
+            // If we are turning right, apply positive and negative powers to the appropriate motors
+            else {
                 // Actually applying the power
                 lfDrivetrainM.setPower(power);
                 lbDrivetrainM.setPower(power);
@@ -524,103 +536,299 @@ class MaximusPrimeBase {
         rfDrivetrainM.setPower(0);
         rbDrivetrainM.setPower(0);
     }
-
-    public void RedOne() {
-        EncoderDrive(-15,25,.3,2,0);
-        Sleep(1000);
+    public void RedOne() {                                                                          // Red One
+        // Move backward to barcode
+        EncoderDrive(-16,25,.3,2,0);
+        // Read the Shipping Element's position
+        ColorSensorReadings();
+        // Move away from the barcode
         EncoderDrive(2,25,.3,2,0);
-        IMUTurn(90,"l",180,.15f,3);
-        EncoderDrive(-27,28,.3,2,90);
-        IMUTurn(2,"r",270,.1f,3);
-        EncoderDrive(5,27,.3,2,0);
+        // Strafe to the wall
+        EncoderDriveSideways(18, 35,
+                .2, 2, 0);
+        // Move forward to carousel
+        EncoderDrive(6,27,.3,2,0);
+        // Deliver the duck
         CarouselAuto();
+        // Move backward past Storage Unit
+        EncoderDrive(-41, 49, .2, 2 , 2);
+        // Strafe away from the wall
+        EncoderDriveSideways(-5, 12,
+                .2, 2, 0);
+        // Turn towards Alliance Shipping Hub
+        IMUTurn(-90, "r",.1f, 3);
+        // Move forward to Alliance Shipping Hub
+        EncoderDrive(-25, 37, .2, 2, -88);
+        // Deliver the Pre-Loaded Box leaving the lift raised
+        DeliverBlock();
+        // Back up near the wall
+        EncoderDrive(28, 37, .2, 2, -90);
+        // Turn to be parallel with the wall
+        IMUTurn(1, "l",.2f, 3);
+        // Strafe to the wall
+        EncoderDriveSideways(6, 11,
+                .2, 2, 0);
+        // Move forward into Storage Unit
+        EncoderDrive(12, 22, .2, 2,0);
+        // Lower the lift
+        liftM.setPower(-1);
+        while (liftM.getCurrentPosition() > 100) {
+            Telemetry();
+        }
+        liftM.setPower(0);
     }
-
-    public void BlueOne() {
-
+    public void BlueOne() {                                                                         // Blue One
+        // Move backward to barcode
+        EncoderDrive(-16,25,.3,2,0);
+        // Read the Shipping Element's position
+        ColorSensorReadings();
+        // Move away from the barcode
+        EncoderDrive(2,25,.3,2,0);
+        // Strafe to the wall
+        EncoderDriveSideways(-18, 35,
+                .2, 2, 0);
+        // Move forward to carousel
+        EncoderDrive(6,27,.3,2,0);
+        // Deliver the duck
+        CarouselAuto();
+        // Move backward past Storage Unit
+        EncoderDrive(-41, 41, .2, 2 , -2);
+        // Strafe away from the wall
+        EncoderDriveSideways(5, 10,
+                .2, 2, 0);
+        // Turn towards Alliance Shipping Hub
+        IMUTurn(90, "l",.2f, 3);
+        // Move forward to Alliance Shipping Hub
+        EncoderDrive(-25, 37, .2, 2, 90);
+        // Deliver the Pre-Loaded Box leaving the lift raised
+        DeliverBlock();
+        // Back up near the wall
+        EncoderDrive(28, 37, .2, 2, 90);
+        // Turn to be parallel with the wall
+        IMUTurn(-1, "r",.2f, 3);
+        // Strafe to the wall
+        EncoderDriveSideways(-6, 11,
+                .2, 2, 0);
+        // Move forward into Storage Unit
+        EncoderDrive(12, 22, .2, 2,0);
+        // Lower the lift
+        liftM.setPower(-1);
+        while (liftM.getCurrentPosition() > 100) {
+            Telemetry();
+        }
+        liftM.setPower(0);
     }
-
-
-    public void CarouselAuto() {
-        // Retrieve the alliance and start position from the autonomous class.
+    public void RedTwo() {                                                                          // Red Two
+        // Move backward to barcode
+        EncoderDrive(-16, 25, .2, 2, 0);
+        // Read the Shipping Element's position
+        ColorSensorReadings();
+        // Move away from the barcode
+        EncoderDrive(2, 25, .2, 2, 0);
+        // Strafe to the front of the Alliance Shipping Hub
+        EncoderDriveSideways(9, 34,
+                .2, 2, 0);
+        // Move backward to the Alliance Shipping Hub
+        EncoderDrive(-12, 12, .2, 2, 0);
+        // Deliver the Pre-Loaded freight
+        DeliverBlock();
+        // Move away from the Alliance Shipping Hub
+        EncoderDrive(8, 15, .2,2,0);
+        // Lower the lift
+        liftM.setPower(-1);
+        while (liftM.getCurrentPosition() > 100) {
+            Telemetry();
+        }
+        liftM.setPower(0);
+        // Turn parallel to the wall
+        IMUTurn(90, "l",.1f, 3);
+        // Strafe into the wall
+        EncoderDriveSideways(9, 13,
+                .2, 2, 90);
+        // Move into the Warehouse
+        EncoderDrive(52, 48, .4, 4, 88);
+        // Strafe away from the wall
+        EncoderDriveSideways(-7, 19,
+                .2, 2, 90);
+        // Turn perpendicular to the wall to set up the field centric driver code
+        IMUTurn(-1, "r",.1f, 2);
+        // Move out of the way if our alliance partners want to park in the warehouse
+        EncoderDrive(-10, 28, .2, 2, 0);
+    }
+    public void BlueTwo() {                                                                         // Blue Two
+        // Move backward to barcode
+        EncoderDrive(-16, 25, .2, 2, 0);
+        // Read the Shipping Element's position
+        ColorSensorReadings();
+        // Move away from the barcode
+        EncoderDrive(2, 25, .2, 2, 0);
+        // Strafe to the front of the Alliance Shipping Hub
+        EncoderDriveSideways(-13, 34,
+                .2, 2, 0);
+        // Move backward to the Alliance Shipping Hub
+        EncoderDrive(-9, 12, .2, 2, 0);
+        // Deliver the Pre-Loaded freight
+        DeliverBlock();
+        // Move away from the Alliance Shipping Hub
+        EncoderDrive(8, 15, .2,2,0);
+        // Lower the lift
+        liftM.setPower(-1);
+        while (liftM.getCurrentPosition() > 100) {
+            Telemetry();
+        }
+        liftM.setPower(0);
+        // Turn parallel to the wall
+        IMUTurn(-90, "r",.1f, 3);
+        // Strafe into the wall
+        EncoderDriveSideways(-9, 13,
+                .2, 2, -90);
+        // Move into the Warehouse
+        EncoderDrive(52, 48, .4, 4, -88);
+        // Strafe away from the wall
+        EncoderDriveSideways(7, 19,
+                .2, 2, -90);
+        // Turn perpendicular to the wall to set up the field centric driver code
+        IMUTurn(-1, "l",.1f, 2);
+        // Move out of the way if our alliance partners want to park in the warehouse
+        EncoderDrive(-10, 28, .2, 2, 0);
+    }
+    public void CarouselAuto() {                                                                    // Carousel Auto
+        // If we are red
         if (alliance == Alliance.BLUE1 || alliance == Alliance.BLUE2) {
-            // Slowly back into the carousel.
+            // Slowly move into the carousel
             lfDrivetrainM.setPower(.1);
             lfDrivetrainM.setPower(.1);
-            // Turn on the carousel spinner for 4.5 seconds.
+            // Turn on the carousel spinner for 4.5 seconds
             lSpinnerM.setPower(.35);
             rSpinnerM.setPower(.35);
             Sleep(4500);
-            // Stop the motors.
+            // Stop the motors
             lSpinnerM.setPower(0);
             rSpinnerM.setPower(0);
             lfDrivetrainM.setPower(0);
             lbDrivetrainM.setPower(0);
-        } else if (alliance == Alliance.RED1 || alliance == Alliance.RED2) {
-            // Ditto
+        }
+        // If we are blue
+        else if (alliance == Alliance.RED1 || alliance == Alliance.RED2) {
+            // Slowly move into the carousel
             rfDrivetrainM.setPower(-.1);
             rbDrivetrainM.setPower(-.1);
+            // Turn on the carousel spinner for 4.5 seconds
             lSpinnerM.setPower(.35);
             rSpinnerM.setPower(.35);
             Sleep(4500);
+            // Stop the motors
             lSpinnerM.setPower(0);
             rSpinnerM.setPower(0);
             rfDrivetrainM.setPower(0);
         }
     }
-
-
-    public void DeliverBlock() {
+    public void DeliverBlock() {                                                                    // Deliver Block
+        // Reset the lift's home position
+        liftM.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        liftM.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        // If we should deliver into the high goal
         if (shippingElementPosition == ShippingElementPosition.HIGH) {
-            // Raise the lift for 2 seconds.
-            liftM.setPower(-.6);
-            Sleep(2000);
-            // Spin the hopper for 1 second.
-            liftM.setPower(-.1);
-            deliveryS.setPosition(100);
-            Sleep(1000);
-            deliveryS.setPosition(0);
-            // Lower the lift
-            liftM.setPower(.8);
-            Sleep(1000);
-            // Stop the lift.
+            // Raise the lift.
+            liftM.setPower(1);
+            while (liftM.getCurrentPosition() < 4200) {
+                Telemetry();
+            }
             liftM.setPower(0);
-        } else if (shippingElementPosition == ShippingElementPosition.MEDIUM) {
-            // Ditto
-            liftM.setPower(-.6);
-            Sleep(1350);
-            liftM.setPower(-.1);
+            // Deliver block
+            deliveryS.setPosition(100);
+            deliveryS.setPosition(0);
+            Sleep(200);
             deliveryS.setPosition(100);
             Sleep(1000);
             deliveryS.setPosition(0);
-            liftM.setPower(.6);
-            Sleep(700);
+            // Stop the lift
             liftM.setPower(0);
-        } else if (shippingElementPosition == ShippingElementPosition.LOW) {
-            liftM.setPower(-.6);
-            Sleep(425);
-            liftM.setPower(-.1);
+        }
+        // If we should deliver into the high goal
+        else if (shippingElementPosition == ShippingElementPosition.MIDDLE) {
+            // Raise the lift
+            liftM.setPower(1);
+            while (liftM.getCurrentPosition() < 2200) {
+                Telemetry();
+            }
+            liftM.setPower(0);
+            // Deliver block
             deliveryS.setPosition(100);
-            Sleep(1000);
             deliveryS.setPosition(0);
-            liftM.setPower(-.9);
-            Sleep(1000);
-            liftM.setPower(.9);
-            Sleep(1000);
+            Sleep(200);
+            deliveryS.setPosition(100);
+            Sleep(200);
+            deliveryS.setPosition(0);
+            // Stop the lift
+            liftM.setPower(0);
+        }
+        // If we should deliver into the high goal
+        else if (shippingElementPosition == ShippingElementPosition.LOW) {
+            // Raise the lift
+            liftM.setPower(1);
+            while (liftM.getCurrentPosition() < 1000) {
+                Telemetry();
+            }
+            liftM.setPower(0);
+            // Deliver block
+            deliveryS.setPosition(100);
+            deliveryS.setPosition(0);
+            Sleep(200);
+            deliveryS.setPosition(100);
+            Sleep(200);
+            deliveryS.setPosition(0);
+            // Stop the lift
             liftM.setPower(0);
         }
     }
-
-    boolean IsInitialized() {                                                                       // Is initialized
-        return !((LinearOpMode)opMode).isStarted() && !((LinearOpMode)opMode).isStopRequested();
-    }
-
-    public void Sleep(long ms) {                                                                    // Sleep
-        if(((LinearOpMode)opMode).opModeIsActive()){
-            ((LinearOpMode)opMode).sleep(ms);
+    // Reading the barcode.
+    public void ColorSensorReadings() {                                                             // Color Sensor Readings
+        // If we are blue
+        if (alliance == Alliance.BLUE1 || alliance == Alliance.BLUE2) {
+            // Read the barcode pos for half a second.
+            genericTimer.reset();
+            while (genericTimer.seconds() < .5 && ((LinearOpMode) opMode).opModeIsActive()) {
+                UpdateColorSensor();
+            }
+            // If the left distance sensor is triggered, set the
+            // Shipping Element position to the middle goal
+            if (leftDistance < 3) {
+                shippingElementPosition = ShippingElementPosition.MIDDLE;
+            }
+            // If the right distance sensor is triggered, set the
+            // Shipping Element position to the high goal
+            else if (rightDistance < 3) {
+                shippingElementPosition = ShippingElementPosition.HIGH;
+            }
+            // If neither sensors are triggered, set the Shipping Element position to the low goal
+            else {
+                shippingElementPosition = ShippingElementPosition.LOW;
+            }
+        }
+        // If we are red
+        else if (alliance == Alliance.RED1 || alliance == Alliance.RED2) {
+            // Read the barcode pos for half a second.
+            genericTimer.reset();
+            while (genericTimer.seconds() < .5 && ((LinearOpMode) opMode).opModeIsActive()) {
+                UpdateColorSensor();
+            }
+            // If the left distance sensor is triggered, set the
+            // Shipping Element position to the low goal
+            if (leftDistance < 3) {
+                shippingElementPosition = ShippingElementPosition.LOW;
+            }
+            // If the right distance sensor is triggered, set the
+            // Shipping Element position to the middle goal
+            else if (rightDistance < 3) {
+                shippingElementPosition = ShippingElementPosition.MIDDLE;
+            }
+            // If neither sensors are triggered, set the Shipping Element position to the high goal
+            else {
+                shippingElementPosition = ShippingElementPosition.HIGH;
+            }
         }
     }
-
     public void Configuration() {                                                                   // Configuration
         collectionM = opMode.hardwareMap.dcMotor.get("collectionM");
         liftM = opMode.hardwareMap.dcMotor.get("liftM");
@@ -631,8 +839,12 @@ class MaximusPrimeBase {
         lbDrivetrainM = opMode.hardwareMap.dcMotor.get("lbDrvtrnM");
         rbDrivetrainM = opMode.hardwareMap.dcMotor.get("rbDrvtrnM");
         this.deliveryS = opMode.hardwareMap.get(Servo.class, "deliveryS");
-        leftColorSensor = opMode.hardwareMap.get(NormalizedColorSensor.class, "leftColorSensor");
-        rightColorSensor = opMode.hardwareMap.get(NormalizedColorSensor.class, "rightColorSensor");
+        leftColorSensor = opMode.hardwareMap.
+                get(NormalizedColorSensor.class, "leftColorSensor");
+        rightColorSensor = opMode.hardwareMap.
+                get(NormalizedColorSensor.class, "rightColorSensor");
+        collectionColorSensor = opMode.hardwareMap.
+                get(NormalizedColorSensor.class, "collectionColorSensor");
         liftM.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         lfDrivetrainM.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         rfDrivetrainM.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
@@ -658,34 +870,66 @@ class MaximusPrimeBase {
     }
 
 
-    // Reading the barcode.
-    public void ColorSensorReadings() {
-        if (alliance == Alliance.BLUE1 || alliance == Alliance.BLUE2) {
-            // Read the barcode pos for half a second.
-            deliverBlockTimer.reset();
-            while (deliverBlockTimer.seconds() < .5 && ((LinearOpMode) opMode).opModeIsActive()) {
-                UpdateColorSensor();
-            }
-            if (leftDistance < 3) {
-                shippingElementPosition = ShippingElementPosition.MEDIUM;
-            } else if (rightDistance < 3) {
-                shippingElementPosition = ShippingElementPosition.HIGH;
-            } else {
-                shippingElementPosition = ShippingElementPosition.LOW;
-            }
-        } else if (alliance == Alliance.RED1 || alliance == Alliance.RED2) {
-            // Read the barcode pos for half a second.
-            deliverBlockTimer.reset();
-            while (deliverBlockTimer.seconds() < .5 && ((LinearOpMode) opMode).opModeIsActive()) {
-                UpdateColorSensor();
-            }
-            if (leftDistance < 3) {
-                shippingElementPosition = ShippingElementPosition.LOW;
-            } else if (rightDistance < 3) {
-                shippingElementPosition = ShippingElementPosition.MEDIUM;
-            } else {
-                shippingElementPosition = ShippingElementPosition.HIGH;
-            }
+
+
+    public void Telemetry() {                                                                       // Telemetry
+        angles = imu.getAngularOrientation
+                (AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
+        currentHeading = (angles.firstAngle);
+        opMode.telemetry.addData("Left: ", leftDistance);
+        opMode.telemetry.addData("Right: ", rightDistance);
+        opMode.telemetry.addData("Heading: ", currentHeading);
+        opMode.telemetry.addData("Heading off: ", headingOffset);
+        opMode.telemetry.addData("Drivetrain speed: ", drvTrnSpd);
+        opMode.telemetry.update();
+    }
+
+    public void AllianceDetermination() {                                                           // Alliance determination
+        // Choosing our starting position for autonomous and teleop.
+        // X for Blue 1, A for Blue 2, etc.
+        if (opMode.gamepad1.x) {
+            alliance = Alliance.BLUE1;
+        } else if (opMode.gamepad1.a) {
+            alliance = Alliance.BLUE2;
+        } else if (opMode.gamepad1.b) {
+            alliance = Alliance.RED1;
+        } else if (opMode.gamepad1.y) {
+            alliance = Alliance.RED2;
+        }
+        // Telemeter the position currently selected
+        opMode.telemetry.addData("Starting auto position", alliance);
+        opMode.telemetry.update();
+    }
+    public void ResetEncoders() {
+        // Function to reset encoders
+        lfDrivetrainM.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        rfDrivetrainM.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        lbDrivetrainM.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        rbDrivetrainM.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        lfDrivetrainM.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        rfDrivetrainM.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        lbDrivetrainM.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        rbDrivetrainM.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+    }
+    public void Autonomous() {
+        // Play the autonomous based on what path was chosen
+        if (alliance == Alliance.RED1) {
+            RedOne();
+        } else if (alliance == Alliance.BLUE1) {
+            BlueOne();
+        } else if (alliance == Alliance.RED2) {
+            RedTwo();
+        } else if (alliance == Alliance.BLUE2) {
+            BlueTwo();
         }
     }
+    boolean IsInitialized() {
+        return !((LinearOpMode)opMode).isStarted() && !((LinearOpMode)opMode).isStopRequested();
+    }
+    public void Sleep(long ms) {
+        if(((LinearOpMode)opMode).opModeIsActive()){
+            ((LinearOpMode)opMode).sleep(ms);
+        }
+    }
+
 }
