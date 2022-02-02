@@ -103,7 +103,6 @@ class MaximusPrimeBase {
             deliveryS.setPosition(0);
         }
     }
-    
     public void DriverControls() {                                                                  // Driver controls
         TeleIMUTurn();
         // Duck delivery controls
@@ -843,7 +842,7 @@ class MaximusPrimeBase {
         opMode.telemetry.update();
     }
     public void ResetEncoders() {
-        // Function to reset encoders
+        // Function to reset encoder readings
         lfDrivetrainM.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         rfDrivetrainM.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         lbDrivetrainM.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
@@ -873,14 +872,12 @@ class MaximusPrimeBase {
             ((LinearOpMode)opMode).sleep(ms);
         }
     }
-
     public void setDrivePowerSides(double motorPowerL, double motorPowerR) {
         lfDrivetrainM.setPower(motorPowerL);
         lbDrivetrainM.setPower(motorPowerL);
         rfDrivetrainM.setPower(motorPowerR);
         rbDrivetrainM.setPower(motorPowerR);
     }
-
     public void stopDrivetrain() {
         lfDrivetrainM.setPower(0);
         lbDrivetrainM.setPower(0);
